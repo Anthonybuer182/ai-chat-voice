@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 # 配置
 @dataclass
 class Config:
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-api-key-here")
-    OPENAI_MODEL = "gpt-3.5-turbo"
+    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    MODEL = "deepseek-chat"
     WHISPER_MODEL = "base"  # tiny, base, small, medium, large
     TTS_LANGUAGE = "zh"  # 中文
     SAMPLE_RATE = 16000
@@ -39,7 +39,7 @@ class Config:
 config = Config()
 
 # 设置OpenAI API密钥
-openai.api_key = config.OPENAI_API_KEY
+openai.api_key = config.DEEPSEEK_API_KEY
 
 # 初始化Whisper模型
 whisper_model = WhisperModel(config.WHISPER_MODEL, device="cpu", compute_type="int8")
@@ -143,7 +143,7 @@ class AIService:
         try:
             response = await asyncio.to_thread(
                 openai.ChatCompletion.create,
-                model=config.OPENAI_MODEL,
+                model=config.MODEL,
                 messages=messages,
                 stream=False,
                 max_tokens=500,
@@ -160,7 +160,7 @@ class AIService:
         try:
             response = await asyncio.to_thread(
                 openai.ChatCompletion.create,
-                model=config.OPENAI_MODEL,
+                model=config.MODEL,
                 messages=messages,
                 stream=True,
                 max_tokens=500,

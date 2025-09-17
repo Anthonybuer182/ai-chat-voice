@@ -54,7 +54,7 @@ pip install -r requirements.txt
 ### 4. 配置环境变量
 创建 `.env` 文件：
 ```env
-OPENAI_API_KEY=your-openai-api-key-here
+DEEPSEEK_API_KEY=your-openai-api-key-here
 ```
 
 ### 5. 创建项目文件
