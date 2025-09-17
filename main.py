@@ -1,7 +1,7 @@
 """
 AI语音聊天系统后端
 需要安装的依赖：
-pip install fastapi uvicorn websockets openai gtts faster-whisper numpy scipy python-multipart
+pip install fastapi uvicorn websockets gtts faster-whisper numpy scipy python-multipart
 """
 
 import os
@@ -19,7 +19,6 @@ from fastapi.staticfiles import StaticFiles
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 from gtts import gTTS
-import openai
 from faster_whisper import WhisperModel
 import logging
 
@@ -30,16 +29,11 @@ logger = logging.getLogger(__name__)
 # 配置
 @dataclass
 class Config:
-    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-    MODEL = "deepseek-chat"
     WHISPER_MODEL = "base"  # tiny, base, small, medium, large
     TTS_LANGUAGE = "zh"  # 中文
     SAMPLE_RATE = 16000
     
 config = Config()
-
-# 设置OpenAI API密钥
-openai.api_key = config.DEEPSEEK_API_KEY
 
 # 初始化Whisper模型
 whisper_model = WhisperModel(config.WHISPER_MODEL, device="cpu", compute_type="int8")
@@ -139,40 +133,23 @@ audio_processor = AudioProcessor()
 class AIService:
     @staticmethod
     async def get_chat_response(messages: List[dict]) -> str:
-        """获取OpenAI聊天响应"""
+        """获取DeepSeek聊天响应"""
         try:
-            response = await asyncio.to_thread(
-                openai.ChatCompletion.create,
-                model=config.MODEL,
-                messages=messages,
-                stream=False,
-                max_tokens=500,
-                temperature=0.7
-            )
-            return response['choices'][0]['message']['content']
+            from llm import get_llm_response
+            return await get_llm_response(messages)
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
+            logger.error(f"DeepSeek API error: {e}")
             return "抱歉，我遇到了一些问题。请稍后再试。"
     
     @staticmethod
     async def get_chat_response_stream(messages: List[dict]):
-        """获取OpenAI流式聊天响应"""
+        """获取DeepSeek流式聊天响应"""
         try:
-            response = await asyncio.to_thread(
-                openai.ChatCompletion.create,
-                model=config.MODEL,
-                messages=messages,
-                stream=True,
-                max_tokens=500,
-                temperature=0.7
-            )
-            for chunk in response:
-                if 'choices' in chunk:
-                    choice = chunk['choices'][0]
-                    if 'delta' in choice and 'content' in choice['delta']:
-                        yield choice['delta']['content']
+            from llm import stream_llm
+            async for chunk in stream_llm(messages):
+                yield chunk
         except Exception as e:
-            logger.error(f"OpenAI API stream error: {e}")
+            logger.error(f"DeepSeek API stream error: {e}")
             yield "抱歉，我遇到了一些问题。请稍后再试。"
     
     @staticmethod

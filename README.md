@@ -10,7 +10,7 @@
 - ✅ 按钮触发录音功能
 - ✅ 语音转文本（Faster-Whisper）
 - ✅ 文本转语音（gTTS）
-- ✅ OpenAI GPT智能对话
+- ✅ DeepSeek AI智能对话
 - ✅ 聊天历史管理
 
 ### Tab 2: 实时语音对话
@@ -25,7 +25,7 @@
 ## 技术栈
 
 - **后端**: FastAPI, WebSocket, Python 3.8+
-- **AI模型**: OpenAI GPT-3.5, Faster-Whisper
+- **AI模型**: DeepSeek Chat, Faster-Whisper
 - **语音合成**: Google Text-to-Speech (gTTS)
 - **前端**: 原生JavaScript, HTML5, CSS3
 - **音频处理**: Web Audio API, MediaRecorder API
@@ -54,7 +54,7 @@ pip install -r requirements.txt
 ### 4. 配置环境变量
 创建 `.env` 文件：
 ```env
-DEEPSEEK_API_KEY=your-openai-api-key-here
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 
 ### 5. 创建项目文件
@@ -86,7 +86,7 @@ python main.py
 ## 配置选项
 
 在 `main.py` 中的 `Config` 类可以调整：
-- `OPENAI_MODEL`: GPT模型选择
+- `AI_MODEL`: AI模型选择（deepseek-chat, deepseek-coder, gpt-3.5-turbo, gpt-4）
 - `WHISPER_MODEL`: 语音识别模型大小
 - `TTS_LANGUAGE`: 语音合成语言
 - `SAMPLE_RATE`: 音频采样率
@@ -96,7 +96,7 @@ python main.py
 1. **API密钥安全**: 不要将API密钥提交到版本控制
 2. **浏览器兼容**: 需要支持WebSocket和MediaRecorder的现代浏览器
 3. **麦克风权限**: 首次使用需要授予麦克风访问权限
-4. **网络要求**: 需要稳定的网络连接访问OpenAI API
+4. **网络要求**: 需要稳定的网络连接访问AI API服务
 
 ## 性能优化建议
 
@@ -127,7 +127,7 @@ python main.py
 - 确保麦克风音质良好
 - 调整音频能量检测阈值
 
-### 问题3: OpenAI API错误
+### 问题3: AI API错误
 - 检查API密钥是否正确
 - 确认账户余额充足
 - 检查网络连接
