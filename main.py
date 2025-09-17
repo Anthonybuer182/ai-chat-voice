@@ -48,7 +48,7 @@ whisper_model = WhisperModel(config.WHISPER_MODEL, device="cpu", compute_type="i
 app = FastAPI(title="AI Voice Chat System")
 
 # 配置静态文件服务
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 连接管理器
 class ConnectionManager:
