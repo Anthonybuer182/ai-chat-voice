@@ -1164,12 +1164,54 @@
             }
         }
         
-        // 播放音频
+        // 语音队列系统
+        let audioQueue = [];
+        let isPlayingAudio = false;
+        
+        // 播放音频（队列版本）
         function playAudio(base64Audio) {
+            // 添加到队列
+            audioQueue.push(base64Audio);
+            
+            // 如果没有正在播放的音频，开始播放
+            if (!isPlayingAudio) {
+                processAudioQueue();
+            }
+        }
+        
+        // 处理音频队列
+        function processAudioQueue() {
+            if (audioQueue.length === 0) {
+                isPlayingAudio = false;
+                return;
+            }
+            
+            isPlayingAudio = true;
+            const base64Audio = audioQueue.shift();
+            
             const audio = new Audio('data:audio/mp3;base64,' + base64Audio);
             const volume = document.getElementById('volumeSlider').value / 100;
             audio.volume = volume;
+            
+            // 播放当前音频
             audio.play();
+            
+            // 监听播放结束事件
+            audio.addEventListener('ended', () => {
+                // 播放队列中的下一个音频
+                setTimeout(processAudioQueue, 100); // 添加100ms延迟避免连续播放
+            });
+            
+            audio.addEventListener('error', () => {
+                // 如果播放出错，继续处理下一个
+                setTimeout(processAudioQueue, 100);
+            });
+        }
+        
+        // 清空音频队列（可选功能）
+        function clearAudioQueue() {
+            audioQueue = [];
+            isPlayingAudio = false;
         }
         
         // 添加消息

@@ -132,6 +132,40 @@ audio_processor = AudioProcessor()
 # AI服务
 class AIService:
     @staticmethod
+    def split_by_punctuation(text: str) -> List[str]:
+        """按标点符号分割文本"""
+        import re
+        # 中文标点符号：。！？；，、
+        # 英文标点符号：. ! ? ; ,
+        pattern = r'([。！？；，、.!?;,]+)'
+        parts = re.split(pattern, text)
+        
+        # 合并分割后的片段
+        sentences = []
+        current_sentence = ""
+        
+        for part in parts:
+            if not part:
+                continue
+            
+            # 如果是标点符号
+            if re.match(pattern, part):
+                if current_sentence:
+                    sentences.append(current_sentence + part)
+                    current_sentence = ""
+                else:
+                    # 标点符号在开头的情况
+                    sentences.append(part)
+            else:
+                current_sentence += part
+        
+        # 添加最后一个句子
+        if current_sentence:
+            sentences.append(current_sentence)
+        
+        return sentences
+
+    @staticmethod
     async def get_chat_response(messages: List[dict]) -> str:
         """获取DeepSeek聊天响应"""
         try:
@@ -220,6 +254,7 @@ async def websocket_chat(websocket: WebSocket):
                 
                 # 发送流式响应
                 full_response = ""
+                current_sentence = ""
                 async for chunk in ai_service.get_chat_response_stream(messages):
                     chunk_type = "start" if full_response == "" else "continue"
                     await manager.send_json(websocket, {
@@ -228,6 +263,26 @@ async def websocket_chat(websocket: WebSocket):
                         "chunk_type": chunk_type
                     })
                     full_response += chunk
+                    current_sentence += chunk
+                    
+                    # 检查当前句子是否包含标点符号
+                    import re
+                    if re.search(r'[。！？；，、.!?;,]+', current_sentence):
+                        # 按标点符号分割当前句子
+                        sentences = ai_service.split_by_punctuation(current_sentence)
+                        
+                        # 处理所有完整的句子（除了最后一个可能不完整的）
+                        for sentence in sentences[:-1]:
+                            if sentence.strip():
+                                audio_data = await ai_service.text_to_speech(sentence)
+                                if audio_data:
+                                    await manager.send_json(websocket, {
+                                        "type": "audio",
+                                        "audio_data": audio_processor.audio_to_base64(audio_data)
+                                    })
+                        
+                        # 保留最后一个可能不完整的句子
+                        current_sentence = sentences[-1] if sentences else ""
                 
                 # 发送结束标记
                 await manager.send_json(websocket, {
@@ -239,9 +294,9 @@ async def websocket_chat(websocket: WebSocket):
                 # 添加完整响应到历史
                 chat_history.add_message(session_id, "assistant", full_response)
                 
-                # 生成语音
-                if full_response:
-                    audio_data = await ai_service.text_to_speech(full_response)
+                # 生成剩余文本的语音（如果有）
+                if current_sentence.strip():
+                    audio_data = await ai_service.text_to_speech(current_sentence)
                     if audio_data:
                         await manager.send_json(websocket, {
                             "type": "audio",
@@ -275,6 +330,7 @@ async def websocket_chat(websocket: WebSocket):
                     
                     # 发送流式文本响应
                     full_response = ""
+                    current_sentence = ""
                     async for chunk in ai_service.get_chat_response_stream(messages):
                         chunk_type = "start" if full_response == "" else "continue"
                         await manager.send_json(websocket, {
@@ -283,6 +339,26 @@ async def websocket_chat(websocket: WebSocket):
                             "chunk_type": chunk_type
                         })
                         full_response += chunk
+                        current_sentence += chunk
+                        
+                        # 检查当前句子是否包含标点符号
+                        import re
+                        if re.search(r'[。！？；，、.!?;,]+', current_sentence):
+                            # 按标点符号分割当前句子
+                            sentences = ai_service.split_by_punctuation(current_sentence)
+                            
+                            # 处理所有完整的句子（除了最后一个可能不完整的）
+                            for sentence in sentences[:-1]:
+                                if sentence.strip():
+                                    audio_data = await ai_service.text_to_speech(sentence)
+                                    if audio_data:
+                                        await manager.send_json(websocket, {
+                                            "type": "audio",
+                                            "audio_data": audio_processor.audio_to_base64(audio_data)
+                                        })
+                            
+                            # 保留最后一个可能不完整的句子
+                            current_sentence = sentences[-1] if sentences else ""
                     
                     # 发送结束标记
                     await manager.send_json(websocket, {
@@ -294,16 +370,19 @@ async def websocket_chat(websocket: WebSocket):
                     # 添加到历史
                     chat_history.add_message(session_id, "assistant", full_response)
                     
-                    # 生成语音响应
-                    audio_response = await ai_service.text_to_speech(full_response)
-                    if audio_response:
-                        await manager.send_json(websocket, {
-                            "type": "audio",
-                            "audio_data": audio_processor.audio_to_base64(audio_response)
-                        })
+                    # 生成剩余文本的语音（如果有）
+                    if current_sentence.strip():
+                        audio_data = await ai_service.text_to_speech(current_sentence)
+                        if audio_data:
+                            await manager.send_json(websocket, {
+                                "type": "audio",
+                                "audio_data": audio_processor.audio_to_base64(audio_data)
+                            })
                     
                     # 发送完成信号
                     await manager.send_json(websocket, {"type": "complete"})
+            
+
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, "chat")
