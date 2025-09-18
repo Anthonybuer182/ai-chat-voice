@@ -220,15 +220,21 @@ async def websocket_chat(websocket: WebSocket):
                 
                 # 发送流式响应
                 full_response = ""
-                is_first = True
                 async for chunk in ai_service.get_chat_response_stream(messages):
+                    chunk_type = "start" if full_response == "" else "continue"
                     await manager.send_json(websocket, {
                         "type": "text_chunk",
                         "content": chunk,
-                        "is_first": is_first
+                        "chunk_type": chunk_type
                     })
                     full_response += chunk
-                    is_first = False
+                
+                # 发送结束标记
+                await manager.send_json(websocket, {
+                    "type": "text_chunk",
+                    "content": "",
+                    "chunk_type": "end"
+                })
                 
                 # 添加完整响应到历史
                 chat_history.add_message(session_id, "assistant", full_response)
@@ -269,15 +275,21 @@ async def websocket_chat(websocket: WebSocket):
                     
                     # 发送流式文本响应
                     full_response = ""
-                    is_first = True
                     async for chunk in ai_service.get_chat_response_stream(messages):
+                        chunk_type = "start" if full_response == "" else "continue"
                         await manager.send_json(websocket, {
                             "type": "text_chunk",
                             "content": chunk,
-                            "is_first": is_first
+                            "chunk_type": chunk_type
                         })
                         full_response += chunk
-                        is_first = False
+                    
+                    # 发送结束标记
+                    await manager.send_json(websocket, {
+                        "type": "text_chunk",
+                        "content": "",
+                        "chunk_type": "end"
+                    })
                     
                     # 添加到历史
                     chat_history.add_message(session_id, "assistant", full_response)
