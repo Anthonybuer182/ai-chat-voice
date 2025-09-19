@@ -852,6 +852,12 @@
         // 播放音频
         function playAudio(base64Audio) {
             try {
+                // 检查音频数据是否为空
+                if (!base64Audio || base64Audio.trim() === '') {
+                    console.warn('空的音频数据，跳过播放');
+                    return;
+                }
+                
                 const audio = new Audio('data:audio/mp3;base64,' + base64Audio);
                 const volume = document.getElementById('volumeSlider').value / 100;
                 audio.volume = volume;
