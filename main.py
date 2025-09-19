@@ -9,7 +9,7 @@ import json
 import base64
 import asyncio
 import tempfile
-from typing import Dict, List
+from typing import Dict, List, AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -19,27 +19,35 @@ from fastapi.staticfiles import StaticFiles
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 from gtts import gTTS
-import openai
+from openai import OpenAI, AsyncOpenAI
 from faster_whisper import WhisperModel
 import logging
+from dotenv import load_dotenv
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 加载环境变量
+load_dotenv()
+
 # 配置
 @dataclass
 class Config:
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-api-key-here")
-    OPENAI_MODEL = "gpt-3.5-turbo"
+    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "your-deepseek-api-key-here")
+    DEEPSEEK_MODEL = "deepseek-chat"
+    DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
     WHISPER_MODEL = "base"  # tiny, base, small, medium, large
     TTS_LANGUAGE = "zh"  # 中文
     SAMPLE_RATE = 16000
     
 config = Config()
 
-# 设置OpenAI API密钥
-openai.api_key = config.OPENAI_API_KEY
+# 初始化OpenAI客户端（用于DeepSeek API）
+client = AsyncOpenAI(
+    api_key=config.DEEPSEEK_API_KEY,
+    base_url=config.DEEPSEEK_API_BASE
+)
 
 # 初始化Whisper模型
 whisper_model = WhisperModel(config.WHISPER_MODEL, device="cpu", compute_type="int8")
@@ -139,40 +147,35 @@ audio_processor = AudioProcessor()
 class AIService:
     @staticmethod
     async def get_chat_response(messages: List[dict]) -> str:
-        """获取OpenAI聊天响应"""
+        """获取DeepSeek聊天响应"""
         try:
-            response = await asyncio.to_thread(
-                openai.ChatCompletion.create,
-                model=config.OPENAI_MODEL,
+            response = await client.chat.completions.create(
+                model=config.DEEPSEEK_MODEL,
                 messages=messages,
-                stream=False,
                 max_tokens=500,
                 temperature=0.7
             )
-            return response['choices'][0]['message']['content']
+            return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
+            logger.error(f"DeepSeek API error: {e}")
             return "抱歉，我遇到了一些问题。请稍后再试。"
     
     @staticmethod
-    async def get_chat_response_stream(messages: List[dict]):
-        """获取OpenAI流式聊天响应"""
+    async def get_chat_response_stream(messages: List[dict]) -> AsyncGenerator[str, None]:
+        """获取DeepSeek流式聊天响应"""
         try:
-            response = await asyncio.to_thread(
-                openai.ChatCompletion.create,
-                model=config.OPENAI_MODEL,
+            response = await client.chat.completions.create(
+                model=config.DEEPSEEK_MODEL,
                 messages=messages,
                 stream=True,
                 max_tokens=500,
                 temperature=0.7
             )
-            for chunk in response:
-                if 'choices' in chunk:
-                    choice = chunk['choices'][0]
-                    if 'delta' in choice and 'content' in choice['delta']:
-                        yield choice['delta']['content']
+            async for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
         except Exception as e:
-            logger.error(f"OpenAI API stream error: {e}")
+            logger.error(f"DeepSeek API stream error: {e}")
             yield "抱歉，我遇到了一些问题。请稍后再试。"
     
     @staticmethod
