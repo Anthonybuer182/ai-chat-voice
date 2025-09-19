@@ -131,6 +131,8 @@ audio_processor = AudioProcessor()
 
 # AI服务
 class AIService:
+
+
     @staticmethod
     async def get_chat_response(messages: List[dict]) -> str:
         """获取DeepSeek聊天响应"""
@@ -220,22 +222,45 @@ async def websocket_chat(websocket: WebSocket):
                 
                 # 发送流式响应
                 full_response = ""
-                is_first = True
+                current_sentence = ""
                 async for chunk in ai_service.get_chat_response_stream(messages):
+                    chunk_type = "start" if full_response == "" else "continue"
                     await manager.send_json(websocket, {
                         "type": "text_chunk",
                         "content": chunk,
-                        "is_first": is_first
+                        "chunk_type": chunk_type
                     })
                     full_response += chunk
-                    is_first = False
+                    current_sentence += chunk
+                    
+                    # 检查当前句子是否包含标点符号
+                    import re
+                    if re.search(r'[。！？.!?]+', current_sentence):
+                        # 直接发送整个当前句子的语音
+                        if current_sentence.strip():
+                            audio_data = await ai_service.text_to_speech(current_sentence)
+                            if audio_data:
+                                await manager.send_json(websocket, {
+                                    "type": "audio",
+                                    "audio_data": audio_processor.audio_to_base64(audio_data)
+                                })
+                        
+                        # 重置当前句子
+                        current_sentence = ""
+                
+                # 发送结束标记
+                await manager.send_json(websocket, {
+                    "type": "text_chunk",
+                    "content": "",
+                    "chunk_type": "end"
+                })
                 
                 # 添加完整响应到历史
                 chat_history.add_message(session_id, "assistant", full_response)
                 
-                # 生成语音
-                if full_response:
-                    audio_data = await ai_service.text_to_speech(full_response)
+                # 生成剩余文本的语音（如果有未处理的文本）
+                if current_sentence.strip():
+                    audio_data = await ai_service.text_to_speech(current_sentence)
                     if audio_data:
                         await manager.send_json(websocket, {
                             "type": "audio",
@@ -269,29 +294,55 @@ async def websocket_chat(websocket: WebSocket):
                     
                     # 发送流式文本响应
                     full_response = ""
-                    is_first = True
+                    current_sentence = ""
                     async for chunk in ai_service.get_chat_response_stream(messages):
+                        chunk_type = "start" if full_response == "" else "continue"
                         await manager.send_json(websocket, {
                             "type": "text_chunk",
                             "content": chunk,
-                            "is_first": is_first
+                            "chunk_type": chunk_type
                         })
                         full_response += chunk
-                        is_first = False
+                        current_sentence += chunk
+                        
+                        # 检查当前句子是否包含标点符号
+                        import re
+                        if re.search(r'[。！？.!?]+', current_sentence):
+                            # 直接发送整个当前句子的语音
+                            if current_sentence.strip():
+                                audio_data = await ai_service.text_to_speech(current_sentence)
+                                if audio_data:
+                                    await manager.send_json(websocket, {
+                                        "type": "audio",
+                                        "audio_data": audio_processor.audio_to_base64(audio_data)
+                                    })
+                            
+                            # 重置当前句子
+                            current_sentence = ""
+                    
+                    # 发送结束标记
+                    await manager.send_json(websocket, {
+                        "type": "text_chunk",
+                        "content": "",
+                        "chunk_type": "end"
+                    })
                     
                     # 添加到历史
                     chat_history.add_message(session_id, "assistant", full_response)
                     
-                    # 生成语音响应
-                    audio_response = await ai_service.text_to_speech(full_response)
-                    if audio_response:
-                        await manager.send_json(websocket, {
-                            "type": "audio",
-                            "audio_data": audio_processor.audio_to_base64(audio_response)
-                        })
+                    # 生成剩余文本的语音（如果有）
+                    if current_sentence.strip():
+                        audio_data = await ai_service.text_to_speech(current_sentence)
+                        if audio_data:
+                            await manager.send_json(websocket, {
+                                "type": "audio",
+                                "audio_data": audio_processor.audio_to_base64(audio_data)
+                            })
                     
                     # 发送完成信号
                     await manager.send_json(websocket, {"type": "complete"})
+            
+
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, "chat")

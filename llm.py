@@ -7,6 +7,10 @@ import os
 import logging
 from typing import AsyncGenerator, List, Dict
 from openai import AsyncOpenAI, APIError, APIConnectionError, RateLimitError
+from dotenv import load_dotenv
+
+# 加载.env文件中的环境变量
+load_dotenv()
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
