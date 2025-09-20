@@ -76,6 +76,17 @@
             background: #667eea;
             border-radius: 3px 3px 0 0;
         }
+
+        /* Tab图标样式 */
+        .tab i {
+            margin-right: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active i {
+            color: #667eea;
+        }
         
         /* Header布局样式 */
         header {
@@ -636,10 +647,10 @@
         </header>
         <div class="tabs">
             <button class="tab active" onclick="switchTab(0)">
-                📝 文本与语音聊天
+                <i class="fas fa-comment-alt"></i> 文本与语音聊天
             </button>
             <button class="tab" onclick="switchTab(1)">
-                🎙️ 实时语音对话
+                <i class="fas fa-microphone-alt"></i> 实时语音对话
             </button>
         </div>
         
@@ -684,7 +695,7 @@
                 <div class="voice-bar" style="height: 20px;"></div>
             </div>
             <div class="audio-controls">
-                <span>🔊 音量：</span>
+                <span><i class="fas fa-volume-up"></i> 音量：</span>
                 <input type="range" class="volume-slider" id="volumeSlider" 
                        min="0" max="100" value="50">
                 <span id="volumeValue">50%</span>
@@ -765,19 +776,19 @@
         function updateInterfaceLanguage(lang) {
             const elements = {
                 'app-title': lang === 'zh' ? 'AI语音聊天系统' : 'AI Voice Chat System',
-                'tab1-label': lang === 'zh' ? '📝 文本与语音聊天' : '📝 Text & Voice Chat',
-                'tab2-label': lang === 'zh' ? '🎙️ 实时语音对话' : '🎙️ Real-time Voice',
+                'tab1-label': lang === 'zh' ? '<i class=\"fas fa-comment-alt\"></i> 文本与语音聊天' : '<i class=\"fas fa-comment-alt\"></i> Text & Voice Chat',
+                'tab2-label': lang === 'zh' ? '<i class=\"fas fa-microphone-alt\"></i> 实时语音对话' : '<i class=\"fas fa-microphone-alt\"></i> Real-time Voice',
                 'textInput-placeholder': lang === 'zh' ? '输入消息...' : 'Type a message...',
                 'send-btn': lang === 'zh' ? '发送' : 'Send',
                 'record-btn': lang === 'zh' ? '录音' : 'Record',
-                'volume-label': lang === 'zh' ? '🔊 音量：' : '🔊 Volume:',
+                'volume-label': lang === 'zh' ? '<i class=\"fas fa-volume-up\"></i> 音量：' : '<i class=\"fas fa-volume-up\"></i> Volume:',
                 'typing-indicator': lang === 'zh' ? 'AI正在输入中...' : 'AI is typing...'
             };
             
             // 更新元素文本
             document.getElementById('appTitle').textContent = elements['app-title'];
-            document.querySelector('.tab:nth-child(1)').textContent = elements['tab1-label'];
-            document.querySelector('.tab:nth-child(2)').textContent = elements['tab2-label'];
+            document.querySelector('.tab:nth-child(1)').innerHTML = elements['tab1-label'];
+            document.querySelector('.tab:nth-child(2)').innerHTML = elements['tab2-label'];
             document.getElementById('textInput').placeholder = elements['textInput-placeholder'];
             // 更新发送按钮文本（保留图标）
             const sendBtn = document.querySelector('.btn-primary');
@@ -785,7 +796,7 @@
             // 更新录音按钮文本（保留图标）
             const recordBtn = document.getElementById('recordBtn');
             recordBtn.innerHTML = recordBtn.innerHTML.replace(/录音|Record/, elements['record-btn']);
-            document.querySelector('.audio-controls span:first-child').textContent = elements['volume-label'];
+            document.querySelector('.audio-controls span:first-child').innerHTML = elements['volume-label'];
             document.getElementById('typing1').textContent = elements['typing-indicator'];
             if (document.getElementById('typing2')) {
                 document.getElementById('typing2').textContent = elements['typing-indicator'];
@@ -1118,7 +1129,7 @@
                     showTypingIndicator('typing1');
                 };
                 reader.readAsDataURL(audioBlob);
-                addMessage('messages1', '🎤 语音消息已发送', 'user');
+                addMessage('messages1', '<i class="fas fa-microphone"></i> 语音消息已发送', 'user');
             }
         }
         
@@ -1282,11 +1293,11 @@
         function updateRecordButton(isRecording) {
             const btn = document.getElementById('recordBtn');
             if (isRecording) {
-                btn.textContent = '⏹️ 停止录音';
+                btn.innerHTML = '<i class="fas fa-stop"></i> 停止录音';
                 btn.classList.add('recording');
                 btn.setAttribute('aria-label', '停止录音');
             } else {
-                btn.textContent = '🎤 开始录音';
+                btn.innerHTML = '<i class="fas fa-microphone"></i> 开始录音';
                 btn.classList.remove('recording');
                 btn.setAttribute('aria-label', '开始录音');
             }
