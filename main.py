@@ -300,15 +300,27 @@ async def websocket_chat(websocket: WebSocket):
                 
                 # 发送流式响应
                 full_response = ""
-                is_first = True
                 async for chunk in ai_service.get_chat_response_stream(messages):
+                    # 确定状态：如果是第一个块就是start，最后一个块就是end，中间的是continue
+                    if not full_response:  # 第一个块
+                        status = "start"
+                    else:
+                        status = "continue"
+                    
                     await manager.send_json(websocket, {
                         "type": "text_chunk",
                         "content": chunk,
-                        "is_first": is_first
+                        "status": status
                     })
                     full_response += chunk
-                    is_first = False
+                
+                # 发送结束状态（如果有内容）
+                if full_response:
+                    await manager.send_json(websocket, {
+                        "type": "text_chunk",
+                        "content": "",
+                        "status": "end"
+                    })
                 
                 # 添加完整响应到历史
                 chat_history.add_message(session_id, "assistant", full_response)
@@ -349,15 +361,27 @@ async def websocket_chat(websocket: WebSocket):
                     
                     # 发送流式文本响应
                     full_response = ""
-                    is_first = True
                     async for chunk in ai_service.get_chat_response_stream(messages):
+                        # 确定状态：如果是第一个块就是start，最后一个块就是end，中间的是continue
+                        if not full_response:  # 第一个块
+                            status = "start"
+                        else:
+                            status = "continue"
+                        
                         await manager.send_json(websocket, {
                             "type": "text_chunk",
                             "content": chunk,
-                            "is_first": is_first
+                            "status": status
                         })
                         full_response += chunk
-                        is_first = False
+                    
+                    # 发送结束状态（如果有内容）
+                    if full_response:
+                        await manager.send_json(websocket, {
+                            "type": "text_chunk",
+                            "content": "",
+                            "status": "end"
+                        })
                     
                     # 添加到历史
                     chat_history.add_message(session_id, "assistant", full_response)

@@ -621,7 +621,7 @@
                 const data = JSON.parse(event.data);
                 
                 if (data.type === 'text_chunk') {
-                    appendStreamingMessage('messages1', data.content, data.is_first);
+                    appendStreamingMessage('messages1', data.content, data.status);
                 } else if (data.type === 'audio') {
                     playAudio(data.audio_data);
                     addMessage('messages1', createVoiceMessageElement(), 'assistant');
@@ -893,10 +893,10 @@
         
         // 添加流式消息
         let currentStreamMessage = null;
-        function appendStreamingMessage(containerId, content, isFirst) {
+        function appendStreamingMessage(containerId, content, status) {
             const messagesDiv = document.getElementById(containerId);
             
-            if (isFirst) {
+            if (status === 'start') {
                 currentStreamMessage = document.createElement('div');
                 currentStreamMessage.className = 'message assistant';
                 
@@ -925,7 +925,14 @@
                 if (!textElement.parentNode) {
                     messageContent.insertBefore(textElement, messageContent.querySelector('.message-time'));
                 }
-                textElement.textContent += content;
+                
+                if (status === 'end') {
+                    // 结束状态，不添加内容，只处理清理
+                    currentStreamMessage = null;
+                } else {
+                    // start 或 continue 状态，添加内容
+                    textElement.textContent += content;
+                }
                 
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
