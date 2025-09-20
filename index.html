@@ -794,11 +794,37 @@
             // 更新状态指示器
             const status1 = document.getElementById('status1');
             const status2 = document.getElementById('status2');
-            if (status1.textContent.includes('连接')) {
+            
+            // 更新状态1的双语文本（同时检查中英文状态）
+            if (status1.textContent.includes('已连接') || status1.textContent.includes('Connected')) {
                 status1.textContent = lang === 'zh' ? '🔗 连接状态：已连接' : '🔗 Status: Connected';
+            } else if (status1.textContent.includes('已断开') || status1.textContent.includes('Disconnected')) {
+                status1.textContent = lang === 'zh' ? '🔗 连接状态：已断开' : '🔗 Status: Disconnected';
+            } else if (status1.textContent.includes('连接错误') || status1.textContent.includes('Connection Error')) {
+                status1.textContent = lang === 'zh' ? '🔗 连接状态：连接错误' : '🔗 Status: Connection Error';
+            } else if (status1.textContent.includes('尝试重新连接') || status1.textContent.includes('Attempting to reconnect')) {
+                const matches = status1.textContent.match(/(?:尝试重新连接|Attempting to reconnect) \((\d+)\/(\d+)\)\.\.\./);
+                if (matches) {
+                    status1.textContent = lang === 'zh' ? `🔗 尝试重新连接 (${matches[1]}/${matches[2]})...` : `🔗 Attempting to reconnect (${matches[1]}/${matches[2]})...`;
+                }
+            } else if (status1.textContent.includes('连接失败') || status1.textContent.includes('Connection failed')) {
+                status1.textContent = lang === 'zh' ? '🔗 连接失败，请刷新页面重试' : '🔗 Connection failed, please refresh the page';
             }
-            if (status2.textContent.includes('连接')) {
+            
+            // 更新状态2的双语文本（同时检查中英文状态）
+            if (status2.textContent.includes('已连接') || status2.textContent.includes('Connected')) {
                 status2.textContent = lang === 'zh' ? '🔗 连接状态：已连接' : '🔗 Status: Connected';
+            } else if (status2.textContent.includes('已断开') || status2.textContent.includes('Disconnected')) {
+                status2.textContent = lang === 'zh' ? '🔗 连接状态：已断开' : '🔗 Status: Disconnected';
+            } else if (status2.textContent.includes('连接错误') || status2.textContent.includes('Connection Error')) {
+                status2.textContent = lang === 'zh' ? '🔗 连接状态：连接错误' : '🔗 Status: Connection Error';
+            } else if (status2.textContent.includes('尝试重新连接') || status2.textContent.includes('Attempting to reconnect')) {
+                const matches = status2.textContent.match(/(?:尝试重新连接|Attempting to reconnect) \((\d+)\/(\d+)\)\.\.\./);
+                if (matches) {
+                    status2.textContent = lang === 'zh' ? `🔗 尝试重新连接 (${matches[1]}/${matches[2]})...` : `🔗 Attempting to reconnect (${matches[1]}/${matches[2]})...`;
+                }
+            } else if (status2.textContent.includes('连接失败') || status2.textContent.includes('Connection failed')) {
+                status2.textContent = lang === 'zh' ? '🔗 连接失败，请刷新页面重试' : '🔗 Connection failed, please refresh the page';
             }
         }
         
@@ -969,6 +995,7 @@
                 reconnectAttempts++;
                 const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1);
                 
+                // 使用状态映射表中的键来确保双语支持
                 updateStatus(currentTab === 0 ? 'status1' : 'status2', 
                            `尝试重新连接 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`, false);
                 
@@ -1231,10 +1258,23 @@
             }
         }
         
-        // 更新状态
+        // 更新状态（支持双语）
         function updateStatus(statusId, text, isConnected) {
             const status = document.getElementById(statusId);
-            status.textContent = `🔗 ${text}`;
+            
+            // 状态文本的双语映射
+            const statusTextMap = {
+                '已连接': currentLanguage === 'zh' ? '已连接' : 'Connected',
+                '已断开': currentLanguage === 'zh' ? '已断开' : 'Disconnected',
+                '连接错误': currentLanguage === 'zh' ? '连接错误' : 'Connection Error',
+                '尝试重新连接': currentLanguage === 'zh' ? '尝试重新连接' : 'Attempting to reconnect',
+                '连接失败，请刷新页面重试': currentLanguage === 'zh' ? '连接失败，请刷新页面重试' : 'Connection failed, please refresh the page',
+                '已连接 - 可以开始说话': currentLanguage === 'zh' ? '已连接 - 可以开始说话' : 'Connected - You can start speaking'
+            };
+            
+            // 获取对应的双语文本，如果没有映射则使用原文本
+            const localizedText = statusTextMap[text] || text;
+            status.textContent = `🔗 ${localizedText}`;
             status.className = `status-indicator ${isConnected ? 'connected' : 'disconnected'}`;
         }
         
