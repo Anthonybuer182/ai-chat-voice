@@ -78,9 +78,10 @@
         
         /* Header布局样式 */
         header {
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             padding: 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }
         
         .header-content {
@@ -93,12 +94,9 @@
         .app-title {
             font-size: 20px;
             font-weight: 700;
-            color: #495057;
+            color: white;
             margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
         
         /* 更新语言选择器样式以适应新布局 */
@@ -113,26 +111,75 @@
         
         .language-btn {
             padding: 8px 16px;
-            border: 2px solid #e9ecef;
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 20px;
-            background: white;
-            color: #495057;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
         }
         
         .language-btn:hover {
-            border-color: #667eea;
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.2);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
         }
         
         .language-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: rgba(255, 255, 255, 0.9);
+            color: #667eea;
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+        }
+        
+        .app-title {
+            font-size: 24px;
+            font-weight: 800;
             color: white;
-            border-color: #667eea;
+            margin: 0;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            letter-spacing: 0.5px;
+        }
+        
+        /* 更新语言选择器样式以适应新布局 */
+        /* 语言选择器样式 */
+        .language-selector {
+            display: flex;
+            padding: 0;
+            background: none;
+            border-bottom: none;
+        }
+        
+        .language-btn {
+            padding: 8px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            min-width: 80px;
+        }
+        
+        .language-btn:hover {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
         }
 
         
@@ -508,11 +555,8 @@
                 <h1 class="app-title" id="appTitle">AI语音聊天系统</h1>
                 <!-- 语言选择器 -->
                 <div class="language-selector">
-                    <button class="language-btn active" onclick="switchLanguage('zh')">
-                        🇨🇳 中文
-                    </button>
-                    <button class="language-btn" onclick="switchLanguage('en')">
-                        🇺🇸 English
+                    <button class="language-btn" id="languageToggle" onclick="toggleLanguage()">
+                        中文
                     </button>
                 </div>
             </div>
@@ -594,34 +638,33 @@
             setupInputValidation();
             setupAccessibility();
             setupLanguageSelector();
+            // 初始化界面语言为中文
+            updateInterfaceLanguage(currentLanguage);
         }
         
         // 设置语言选择器
         function setupLanguageSelector() {
-            // 为语言按钮添加ARIA标签
-            const zhBtn = document.querySelector('.language-btn:nth-child(1)');
-            const enBtn = document.querySelector('.language-btn:nth-child(2)');
-            zhBtn.setAttribute('aria-label', '切换到中文');
-            enBtn.setAttribute('aria-label', 'Switch to English');
+            // 为语言切换按钮添加ARIA标签
+            const languageBtn = document.getElementById('languageToggle');
+            languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
         }
         
         // 切换语言
-        function switchLanguage(lang) {
-            currentLanguage = lang;
+        function toggleLanguage() {
+            currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
             
-            // 更新按钮状态
-            document.querySelectorAll('.language-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`.language-btn:nth-child(${lang === 'zh' ? 1 : 2})`).classList.add('active');
+            // 更新按钮文字和提示
+            const languageBtn = document.getElementById('languageToggle');
+            languageBtn.textContent = currentLanguage === 'zh' ? '中文' : 'English';
+            languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
             
             // 更新界面文本
-            updateInterfaceLanguage(lang);
+            updateInterfaceLanguage(currentLanguage);
             
             // 发送语言配置到已连接的WebSocket
             sendLanguageConfig();
             
-            console.log(`语言已切换到: ${lang === 'zh' ? '中文' : 'English'}`);
+            console.log(`语言已切换到: ${currentLanguage === 'zh' ? '中文' : 'English'}`);
         }
         
         // 发送语言配置到WebSocket
