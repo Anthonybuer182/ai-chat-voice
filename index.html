@@ -76,14 +76,39 @@
             border-radius: 3px 3px 0 0;
         }
         
+        /* Header布局样式 */
+        header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 0;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+        }
+        
+        .app-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #495057;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* 更新语言选择器样式以适应新布局 */
         /* 语言选择器样式 */
         .language-selector {
             display: flex;
-            justify-content: center;
-            padding: 10px 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
             gap: 10px;
+            padding: 0;
+            background: none;
+            border-bottom: none;
         }
         
         .language-btn {
@@ -109,6 +134,7 @@
             color: white;
             border-color: #667eea;
         }
+
         
         .tab-content {
             display: none;
@@ -477,22 +503,26 @@
 </head>
 <body>
     <div class="container">
+        <header>
+            <div class="header-content">
+                <h1 class="app-title" id="appTitle">AI语音聊天系统</h1>
+                <!-- 语言选择器 -->
+                <div class="language-selector">
+                    <button class="language-btn active" onclick="switchLanguage('zh')">
+                        🇨🇳 中文
+                    </button>
+                    <button class="language-btn" onclick="switchLanguage('en')">
+                        🇺🇸 English
+                    </button>
+                </div>
+            </div>
+        </header>
         <div class="tabs">
             <button class="tab active" onclick="switchTab(0)">
                 📝 文本与语音聊天
             </button>
             <button class="tab" onclick="switchTab(1)">
                 🎙️ 实时语音对话
-            </button>
-        </div>
-        
-        <!-- 语言选择器 -->
-        <div class="language-selector">
-            <button class="language-btn active" onclick="switchLanguage('zh')">
-                🇨🇳 中文
-            </button>
-            <button class="language-btn" onclick="switchLanguage('en')">
-                🇺🇸 English
             </button>
         </div>
         
@@ -616,6 +646,7 @@
         // 更新界面语言
         function updateInterfaceLanguage(lang) {
             const elements = {
+                'app-title': lang === 'zh' ? 'AI语音聊天系统' : 'AI Voice Chat System',
                 'tab1-label': lang === 'zh' ? '📝 文本与语音聊天' : '📝 Text & Voice Chat',
                 'tab2-label': lang === 'zh' ? '🎙️ 实时语音对话' : '🎙️ Real-time Voice',
                 'textInput-placeholder': lang === 'zh' ? '输入消息...' : 'Type a message...',
@@ -626,6 +657,7 @@
             };
             
             // 更新元素文本
+            document.getElementById('appTitle').textContent = elements['app-title'];
             document.querySelector('.tab:nth-child(1)').textContent = elements['tab1-label'];
             document.querySelector('.tab:nth-child(2)').textContent = elements['tab2-label'];
             document.getElementById('textInput').placeholder = elements['textInput-placeholder'];
