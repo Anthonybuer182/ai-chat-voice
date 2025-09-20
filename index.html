@@ -76,6 +76,40 @@
             border-radius: 3px 3px 0 0;
         }
         
+        /* 语言选择器样式 */
+        .language-selector {
+            display: flex;
+            justify-content: center;
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            gap: 10px;
+        }
+        
+        .language-btn {
+            padding: 8px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 20px;
+            background: white;
+            color: #495057;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .language-btn:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .language-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+        
         .tab-content {
             display: none;
             height: calc(100% - 60px);
@@ -452,6 +486,16 @@
             </button>
         </div>
         
+        <!-- 语言选择器 -->
+        <div class="language-selector">
+            <button class="language-btn active" onclick="switchLanguage('zh')">
+                🇨🇳 中文
+            </button>
+            <button class="language-btn" onclick="switchLanguage('en')">
+                🇺🇸 English
+            </button>
+        </div>
+        
         <!-- Tab 1: 文本与语音聊天 -->
         <div class="tab-content active" id="tab1">
             <div class="status-indicator" id="status1">
@@ -511,6 +555,7 @@
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
         const RECONNECT_DELAY = 3000;
+        let currentLanguage = 'zh';  // 当前语言：'zh' 或 'en'
         
         // 初始化
         function init() {
@@ -518,6 +563,87 @@
             setupVolumeControl();
             setupInputValidation();
             setupAccessibility();
+            setupLanguageSelector();
+        }
+        
+        // 设置语言选择器
+        function setupLanguageSelector() {
+            // 为语言按钮添加ARIA标签
+            const zhBtn = document.querySelector('.language-btn:nth-child(1)');
+            const enBtn = document.querySelector('.language-btn:nth-child(2)');
+            zhBtn.setAttribute('aria-label', '切换到中文');
+            enBtn.setAttribute('aria-label', 'Switch to English');
+        }
+        
+        // 切换语言
+        function switchLanguage(lang) {
+            currentLanguage = lang;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.language-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.language-btn:nth-child(${lang === 'zh' ? 1 : 2})`).classList.add('active');
+            
+            // 更新界面文本
+            updateInterfaceLanguage(lang);
+            
+            // 发送语言配置到已连接的WebSocket
+            sendLanguageConfig();
+            
+            console.log(`语言已切换到: ${lang === 'zh' ? '中文' : 'English'}`);
+        }
+        
+        // 发送语言配置到WebSocket
+        function sendLanguageConfig() {
+            // 发送到文本聊天WebSocket
+            if (ws1 && ws1.readyState === WebSocket.OPEN) {
+                ws1.send(JSON.stringify({
+                    type: "config",
+                    language: currentLanguage
+                }));
+            }
+            
+            // 发送到实时语音WebSocket
+            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                ws2.send(JSON.stringify({
+                    type: "config",
+                    language: currentLanguage
+                }));
+            }
+        }
+        
+        // 更新界面语言
+        function updateInterfaceLanguage(lang) {
+            const elements = {
+                'tab1-label': lang === 'zh' ? '📝 文本与语音聊天' : '📝 Text & Voice Chat',
+                'tab2-label': lang === 'zh' ? '🎙️ 实时语音对话' : '🎙️ Real-time Voice',
+                'textInput-placeholder': lang === 'zh' ? '输入消息...' : 'Type a message...',
+                'send-btn': lang === 'zh' ? '发送' : 'Send',
+                'record-btn': lang === 'zh' ? '🎤 录音' : '🎤 Record',
+                'volume-label': lang === 'zh' ? '🔊 音量：' : '🔊 Volume:',
+                'typing-indicator': lang === 'zh' ? 'AI正在输入中...' : 'AI is typing...'
+            };
+            
+            // 更新元素文本
+            document.querySelector('.tab:nth-child(1)').textContent = elements['tab1-label'];
+            document.querySelector('.tab:nth-child(2)').textContent = elements['tab2-label'];
+            document.getElementById('textInput').placeholder = elements['textInput-placeholder'];
+            document.querySelector('.btn-primary').textContent = elements['send-btn'];
+            document.getElementById('recordBtn').textContent = elements['record-btn'];
+            document.querySelector('.audio-controls span:first-child').textContent = elements['volume-label'];
+            document.getElementById('typing1').textContent = elements['typing-indicator'];
+            document.getElementById('typing2').textContent = elements['typing-indicator'];
+            
+            // 更新状态指示器
+            const status1 = document.getElementById('status1');
+            const status2 = document.getElementById('status2');
+            if (status1.textContent.includes('连接')) {
+                status1.textContent = lang === 'zh' ? '🔗 连接状态：已连接' : '🔗 Status: Connected';
+            }
+            if (status2.textContent.includes('连接')) {
+                status2.textContent = lang === 'zh' ? '🔗 连接状态：已连接' : '🔗 Status: Connected';
+            }
         }
         
         // 设置输入验证
@@ -649,6 +775,12 @@
             ws2.onopen = () => {
                 updateStatus('status2', '已连接 - 可以开始说话', true);
                 reconnectAttempts = 0;
+                
+                // 发送语言配置
+                ws2.send(JSON.stringify({
+                    type: "config",
+                    language: currentLanguage
+                }));
             };
             
             ws2.onmessage = async (event) => {
@@ -695,22 +827,26 @@
         
         // 发送文本消息
         function sendTextMessage() {
-            const input = document.getElementById('textInput');
-            const message = input.value.trim();
-            
-            if (message && ws1 && ws1.readyState === WebSocket.OPEN) {
-                addMessage('messages1', message, 'user');
+            const textInput = document.getElementById('textInput');
+            const message = textInput.value.trim();
+            if (!message) return;
+
+            if (ws1 && ws1.readyState === WebSocket.OPEN) {
                 ws1.send(JSON.stringify({
-                    type: 'text',
-                    content: message
+                    type: "text",
+                    message: message,
+                    language: currentLanguage  // 添加语言参数
                 }));
-                input.value = '';
-                input.focus();
+                addMessage('messages1', message, 'user');
+                textInput.value = '';
+                textInput.focus();
                 showTypingIndicator('typing1');
                 
                 // 禁用发送按钮直到有新输入
                 const sendBtn = document.querySelector('.btn-primary');
                 sendBtn.disabled = true;
+            } else {
+                console.error('WebSocket连接未就绪');
             }
         }
         
@@ -793,7 +929,8 @@
                     ws1.send(JSON.stringify({
                         type: 'audio',
                         audio_data: base64Audio,
-                        duration: audioBlob.size / 44100 // 估算时长
+                        duration: audioBlob.size / 44100, // 估算时长
+                        language: currentLanguage  // 添加语言参数
                     }));
                     showTypingIndicator('typing1');
                 };

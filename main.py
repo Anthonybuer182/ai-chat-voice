@@ -43,6 +43,18 @@ class Config:
     TTS_LANGUAGE = "zh"  # 中文
     SAMPLE_RATE = 16000
     
+    # 系统提示词模板
+    SYSTEM_PROMPTS = {
+        "zh": {
+            "chat": "你是一个友好的AI助手，请用中文回答。",
+            "voice": "你是一个友好的AI助手，请简洁地用中文回答，回答控制在50字以内。"
+        },
+        "en": {
+            "chat": "You are a friendly AI assistant. Please respond in English.",
+            "voice": "You are a friendly AI assistant. Please respond concisely in English, keeping your answers under 50 words."
+        }
+    }
+    
 config = Config()
 
 # 初始化OpenAI客户端（用于DeepSeek API）
@@ -293,8 +305,9 @@ async def websocket_chat(websocket: WebSocket):
                 chat_history.add_message(session_id, "user", user_message)
                 
                 # 获取AI响应（流式）
+                language = data.get("language", "zh")
                 messages = [
-                    {"role": "system", "content": "你是一个友好的AI助手，请用中文回答。"},
+                    {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
                     *chat_history.get_history(session_id)
                 ]
                 
@@ -354,8 +367,9 @@ async def websocket_chat(websocket: WebSocket):
                     chat_history.add_message(session_id, "user", transcribed_text)
                     
                     # 获取AI响应
+                    language = data.get("language", "zh")
                     messages = [
-                        {"role": "system", "content": "你是一个友好的AI助手，请用中文回答。"},
+                        {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
                         *chat_history.get_history(session_id)
                     ]
                     
@@ -459,8 +473,9 @@ async def websocket_voice(websocket: WebSocket):
                             chat_history.add_message(session_id, "user", transcribed_text)
                             
                             # 获取AI响应
+                            language = data.get("language", "zh")
                             messages = [
-                                {"role": "system", "content": "你是一个友好的AI助手，请简洁地用中文回答，回答控制在50字以内。"},
+                                {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["voice"]},
                                 *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
                             ]
                             
