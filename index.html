@@ -444,21 +444,93 @@
             }
             
             .input-area {
-                padding: 15px;
+                padding: 12px 15px;
                 flex-wrap: wrap;
+                gap: 8px;
             }
             
             .input-field {
                 order: 1;
-                width: 100%;
-                margin-bottom: 10px;
+                width: calc(100% - 100px); /* 给按钮留出空间 */
+                margin-bottom: 0;
+                padding: 10px 14px;
+                font-size: 14px;
             }
             
             .btn {
                 order: 2;
-                flex: 1;
-                padding: 10px 15px;
-                font-size: 14px;
+                flex: none; /* 取消flex:1 */
+                padding: 10px 12px;
+                font-size: 13px;
+                min-width: auto;
+                width: 44px; /* 固定宽度 */
+            }
+            
+            /* 更窄屏幕的优化 */
+            @media (max-width: 480px) {
+                .input-area {
+                    padding: 10px 12px;
+                    gap: 6px;
+                }
+                
+                .input-field {
+                    width: calc(100% - 92px); /* 两个按钮宽度 + 间距 */
+                    padding: 10px 12px;
+                }
+                
+                .btn {
+                    padding: 10px;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    position: relative;
+                }
+                
+                .btn i {
+                    font-size: 14px;
+                    margin: 0 !important;
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    line-height: 1;
+                }
+                
+                /* 隐藏按钮文字，只显示图标 */
+                .btn {
+                    font-size: 0;
+                }
+                
+                /* 移除悬停提示 */
+                .btn::after {
+                    display: none;
+                }
+            }
+            
+            /* 超窄屏幕优化 */
+            @media (max-width: 360px) {
+                .input-area {
+                    padding: 8px 10px;
+                }
+                
+                .input-field {
+                    width: calc(100% - 84px);
+                    padding: 8px 12px;
+                    font-size: 13px;
+                }
+                
+                .btn {
+                    width: 38px;
+                    height: 38px;
+                    padding: 8px;
+                }
+                
+                .btn i {
+                    font-size: 13px;
+                }
             }
             
             .message-content {
@@ -584,10 +656,10 @@
                 <input type="text" class="input-field" id="textInput" 
                        placeholder="输入消息..." 
                        onkeypress="if(event.key === 'Enter') sendTextMessage()">
-                <button class="btn btn-primary" onclick="sendTextMessage()">
+                <button class="btn btn-primary" onclick="sendTextMessage()" data-text="发送">
                     <i class="fas fa-paper-plane"></i> 发送
                 </button>
-                <button class="btn btn-record" id="recordBtn" onclick="toggleRecording()">
+                <button class="btn btn-record" id="recordBtn" onclick="toggleRecording()" data-text="录音">
                     <i class="fas fa-microphone"></i> 录音
                 </button>
             </div>
