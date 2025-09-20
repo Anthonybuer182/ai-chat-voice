@@ -463,10 +463,10 @@
                 padding: 10px 12px;
                 font-size: 13px;
                 min-width: auto;
-                width: 44px; /* 固定宽度 */
+                /* 移除固定宽度，让按钮根据内容自适应 */
             }
             
-            /* 更窄屏幕的优化 */
+            /* 更窄屏幕的优化 - 只在480px以下应用固定宽度 */
             @media (max-width: 480px) {
                 .input-area {
                     padding: 10px 12px;
@@ -480,7 +480,7 @@
                 
                 .btn {
                     padding: 10px;
-                    width: 40px;
+                    width: 40px; /* 只在480px以下设置固定宽度 */
                     height: 40px;
                     border-radius: 50%;
                     display: flex !important;
