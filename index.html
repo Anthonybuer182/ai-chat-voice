@@ -665,7 +665,9 @@
             document.getElementById('recordBtn').textContent = elements['record-btn'];
             document.querySelector('.audio-controls span:first-child').textContent = elements['volume-label'];
             document.getElementById('typing1').textContent = elements['typing-indicator'];
-            document.getElementById('typing2').textContent = elements['typing-indicator'];
+            if (document.getElementById('typing2')) {
+                document.getElementById('typing2').textContent = elements['typing-indicator'];
+            }
             
             // 更新状态指示器
             const status1 = document.getElementById('status1');
@@ -1131,13 +1133,18 @@
         // 显示输入指示器
         function showTypingIndicator(indicatorId) {
             const indicator = document.getElementById(indicatorId);
-            indicator.classList.add('show');
-            indicator.innerHTML = '<span class="loading-spinner"></span> AI正在思考中...';
+            if (indicator) {
+                indicator.classList.add('show');
+                indicator.innerHTML = '<span class="loading-spinner"></span> AI正在思考中...';
+            }
         }
         
         // 隐藏输入指示器
         function hideTypingIndicator(indicatorId) {
-            document.getElementById(indicatorId).classList.remove('show');
+            const indicator = document.getElementById(indicatorId);
+            if (indicator) {
+                indicator.classList.remove('show');
+            }
         }
         
         // 更新可视化器
