@@ -594,30 +594,29 @@
             align-items: center;
             justify-content: center;
             padding: 12px 16px;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+            background: white;
+            border: 1px solid #e9ecef;
             border-radius: 18px;
-            border: 1px solid rgba(102, 126, 234, 0.25);
-            backdrop-filter: blur(10px);
             cursor: pointer;
             transition: all 0.3s ease;
             margin: 5px 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .voice-message-indicator:hover {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            background: #f8f9fa;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         
         .voice-message-indicator.playing {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
-            border-color: rgba(102, 126, 234, 0.4);
+            /* 播放时只改变图标颜色，不改变边框和背景 */
         }
         
         .voice-message-indicator .play-btn {
             margin-right: 8px;
             color: #667eea;
-            font-size: 14px;
+            font-size: 16px;
             transition: all 0.3s ease;
         }
         
