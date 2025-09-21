@@ -598,9 +598,33 @@
             border-radius: 12px;
             border: 1px solid rgba(102, 126, 234, 0.2);
             backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
         
-        .voice-wave {
+        .voice-message-indicator:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .voice-message-indicator.playing {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+            border-color: rgba(102, 126, 234, 0.4);
+        }
+        
+        .voice-message-indicator .play-btn {
+            margin-right: 8px;
+            color: #667eea;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .voice-message-indicator.playing .play-btn {
+            color: #dc3545;
+        }
+        
+        .voice-message-indicator .voice-wave {
             display: flex;
             align-items: end;
             gap: 3px;
@@ -608,7 +632,7 @@
             padding: 0 4px;
         }
         
-        .wave-bar {
+        .voice-message-indicator .wave-bar {
             width: 3px;
             min-height: 4px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -616,6 +640,15 @@
             animation: wave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
             transform-origin: bottom;
             box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+        }
+        
+        .voice-message-indicator:not(.playing) .wave-bar {
+            animation: none;
+            opacity: 0.3;
+        }
+        
+        .voice-message-indicator.playing .wave-bar {
+            animation: wave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
         
         .wave-bar:nth-child(1) { 
@@ -986,8 +1019,7 @@
                 if (data.type === 'text_chunk') {
                     appendStreamingMessage('messages1', data.content, data.status);
                 } else if (data.type === 'audio') {
-                    playAudio(data.audio_data);
-                    addMessage('messages1', createVoiceMessageElement(), 'assistant');
+                    addMessage('messages1', createVoiceMessageElement(data.audio_data), 'assistant');
                 } else if (data.type === 'complete') {
                     hideTypingIndicator('typing1');
                 }
@@ -1028,8 +1060,7 @@
                 } else if (data.type === 'response') {
                     addMessage('messages2', data.text, 'assistant');
                 } else if (data.type === 'audio') {
-                    playAudio(data.audio_data);
-                    addMessage('messages2', createVoiceMessageElement(), 'assistant');
+                    addMessage('messages2', createVoiceMessageElement(data.audio_data), 'assistant');
                 }
             };
             
@@ -1089,9 +1120,13 @@
         }
         
         // 创建语音消息元素
-        function createVoiceMessageElement() {
+        function createVoiceMessageElement(base64Audio) {
+            const audioId = 'audio-' + Date.now();
             return `
-                <div class="voice-message-indicator">
+                <div class="voice-message-indicator" id="${audioId}" onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')">
+                    <div class="play-btn">
+                        <i class="fas fa-play"></i>
+                    </div>
                     <div class="voice-wave">
                         <div class="wave-bar"></div>
                         <div class="wave-bar"></div>
@@ -1414,6 +1449,84 @@
             stopRealTimeAudio();
         });
         
+        // 音频播放控制
+        let currentAudio = null;
+        let currentAudioElement = null;
+        
+        function toggleAudioPlayback(audioId, base64Audio) {
+            const audioElement = document.getElementById(audioId);
+            
+            // 如果正在播放当前音频，则停止
+            if (currentAudioElement === audioElement && currentAudio) {
+                stopAudioPlayback();
+                return;
+            }
+            
+            // 如果正在播放其他音频，先停止
+            if (currentAudio) {
+                stopAudioPlayback();
+            }
+            
+            // 开始播放新音频
+            startAudioPlayback(audioElement, base64Audio);
+        }
+        
+        function startAudioPlayback(audioElement, base64Audio) {
+            try {
+                // 创建音频对象
+                currentAudio = new Audio('data:audio/mp3;base64,' + base64Audio);
+                const volume = document.getElementById('volumeSlider').value / 100;
+                currentAudio.volume = volume;
+                
+                // 更新UI状态
+                audioElement.classList.add('playing');
+                const playIcon = audioElement.querySelector('.play-btn i');
+                playIcon.className = 'fas fa-stop';
+                
+                // 设置音频事件
+                currentAudio.onended = () => {
+                    stopAudioPlayback();
+                };
+                
+                currentAudio.onerror = (error) => {
+                    console.error('音频播放错误:', error);
+                    stopAudioPlayback();
+                };
+                
+                // 开始播放
+                currentAudio.play().catch(error => {
+                    console.error('播放失败:', error);
+                    stopAudioPlayback();
+                });
+                
+                currentAudioElement = audioElement;
+                
+            } catch (error) {
+                console.error('创建音频失败:', error);
+                stopAudioPlayback();
+            }
+        }
+        
+        function stopAudioPlayback() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+            }
+            
+            if (currentAudioElement) {
+                currentAudioElement.classList.remove('playing');
+                const playIcon = currentAudioElement.querySelector('.play-btn i');
+                playIcon.className = 'fas fa-play';
+                currentAudioElement = null;
+            }
+        }
+        
+        // 全局音频停止函数
+        function stopAllAudio() {
+            stopAudioPlayback();
+        }
+
         // 添加CSS动画
         const style = document.createElement('style');
         style.textContent = `
