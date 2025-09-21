@@ -592,32 +592,76 @@
         .voice-message-indicator {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 14px;
+            justify-content: center;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            backdrop-filter: blur(10px);
         }
         
         .voice-wave {
             display: flex;
-            align-items: center;
-            gap: 2px;
-            height: 20px;
+            align-items: end;
+            gap: 3px;
+            height: 24px;
+            padding: 0 4px;
         }
         
         .wave-bar {
-            width: 2px;
-            background: currentColor;
-            border-radius: 1px;
-            animation: wave 1.2s ease-in-out infinite;
+            width: 3px;
+            min-height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            animation: wave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            transform-origin: bottom;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
         }
         
-        .wave-bar:nth-child(2) { animation-delay: 0.2s; }
-        .wave-bar:nth-child(3) { animation-delay: 0.4s; }
-        .wave-bar:nth-child(4) { animation-delay: 0.6s; }
-        .wave-bar:nth-child(5) { animation-delay: 0.8s; }
+        .wave-bar:nth-child(1) { 
+            animation-delay: 0s; 
+            height: 12px;
+        }
+        .wave-bar:nth-child(2) { 
+            animation-delay: 0.2s; 
+            height: 18px;
+        }
+        .wave-bar:nth-child(3) { 
+            animation-delay: 0.4s; 
+            height: 22px;
+        }
+        .wave-bar:nth-child(4) { 
+            animation-delay: 0.6s; 
+            height: 16px;
+        }
+        .wave-bar:nth-child(5) { 
+            animation-delay: 0.8s; 
+            height: 10px;
+        }
         
         @keyframes wave {
-            0%, 100% { height: 8px; }
-            50% { height: 16px; }
+            0%, 100% { 
+                transform: scaleY(0.4);
+                opacity: 0.6;
+            }
+            25% { 
+                transform: scaleY(0.8);
+                opacity: 0.8;
+            }
+            50% { 
+                transform: scaleY(1.2);
+                opacity: 1;
+            }
+            75% { 
+                transform: scaleY(0.6);
+                opacity: 0.7;
+            }
+        }
+        
+        /* 悬停效果 */
+        .voice-message-indicator:hover .wave-bar {
+            animation-duration: 1.2s;
+            box-shadow: 0 3px 6px rgba(102, 126, 234, 0.4);
         }
     </style>
 </head>
@@ -1048,7 +1092,6 @@
         function createVoiceMessageElement() {
             return `
                 <div class="voice-message-indicator">
-                    <span>🎵 语音消息</span>
                     <div class="voice-wave">
                         <div class="wave-bar"></div>
                         <div class="wave-bar"></div>
