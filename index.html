@@ -1019,7 +1019,13 @@
                 if (data.type === 'text_chunk') {
                     appendStreamingMessage('messages1', data.content, data.status);
                 } else if (data.type === 'audio') {
-                    addMessage('messages1', createVoiceMessageElement(data.audio_data), 'assistant');
+                    const messageElement = createVoiceMessageElement(data.audio_data);
+                    addMessage('messages1', messageElement, 'assistant');
+                    // 自动播放语音消息
+                    setTimeout(() => {
+                        const audioId = messageElement.match(/id="([^"]+)"/)[1];
+                        toggleAudioPlayback(audioId, data.audio_data);
+                    }, 100);
                 } else if (data.type === 'complete') {
                     hideTypingIndicator('typing1');
                 }
@@ -1060,7 +1066,13 @@
                 } else if (data.type === 'response') {
                     addMessage('messages2', data.text, 'assistant');
                 } else if (data.type === 'audio') {
-                    addMessage('messages2', createVoiceMessageElement(data.audio_data), 'assistant');
+                    const messageElement = createVoiceMessageElement(data.audio_data);
+                    addMessage('messages2', messageElement, 'assistant');
+                    // 自动播放语音消息
+                    setTimeout(() => {
+                        const audioId = messageElement.match(/id="([^"]+)"/)[1];
+                        toggleAudioPlayback(audioId, data.audio_data);
+                    }, 100);
                 }
             };
             
