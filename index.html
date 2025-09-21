@@ -606,31 +606,38 @@
         /* 特殊语音气泡样式 - 语音消息左下角包裹文本消息左上角 */
         .voice-message-indicator.wrap-corner {
             border-bottom-left-radius: 0;
-            margin-bottom: -1px;
+            margin-bottom: -2px;
             position: relative;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
         
         .voice-message-indicator.wrap-corner::before {
             content: '';
             position: absolute;
-            bottom: -1px;
+            bottom: -2px;
             left: -1px;
-            width: 18px;
-            height: 1px;
-            background: white;
+            width: 20px;
+            height: 2px;
+            background: linear-gradient(to right, white 0%, white 18px, transparent 18px);
         }
         
         .voice-message-indicator.wrap-corner::after {
             content: '';
             position: absolute;
-            bottom: -18px;
+            bottom: -20px;
             left: -1px;
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             background: white;
-            border-radius: 0 0 0 18px;
+            border-radius: 0 0 0 20px;
             border-left: 1px solid #e9ecef;
             border-bottom: 1px solid #e9ecef;
+            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 为文本消息添加轻微阴影增强层次感 */
+        .message.user .message-content {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
         
         .voice-message-indicator:hover {
