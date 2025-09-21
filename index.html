@@ -274,12 +274,7 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
-        .message-time {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 4px;
-            text-align: right;
-        }
+
         
         .input-area {
             padding: 20px;
@@ -591,13 +586,7 @@
             51%, 100% { opacity: 0.3; }
         }
         
-        /* 消息时间戳 */
-        .message-time {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 4px;
-            text-align: right;
-        }
+
         
         /* 语音消息指示器 */
         .voice-message-indicator {
@@ -1217,15 +1206,9 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
-            const timestamp = new Date().toLocaleTimeString('zh-CN', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
             messageDiv.innerHTML = `
                 <div class="message-content">
                     ${content}
-                    <div class="message-time">${timestamp}</div>
                 </div>
             `;
             
@@ -1242,15 +1225,9 @@
                 currentStreamMessage = document.createElement('div');
                 currentStreamMessage.className = 'message assistant';
                 
-                const timestamp = new Date().toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
                 currentStreamMessage.innerHTML = `
                     <div class="message-content">
                         <div class="loading-spinner"></div>
-                        <div class="message-time">${timestamp}</div>
                     </div>
                 `;
                 messagesDiv.appendChild(currentStreamMessage);
@@ -1265,7 +1242,7 @@
                 
                 const textElement = messageContent.querySelector('span') || document.createElement('span');
                 if (!textElement.parentNode) {
-                    messageContent.insertBefore(textElement, messageContent.querySelector('.message-time'));
+                    messageContent.appendChild(textElement);
                 }
                 
                 if (status === 'end') {
