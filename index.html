@@ -603,6 +603,36 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
+        /* 特殊语音气泡样式 - 语音消息左下角包裹文本消息左上角 */
+        .voice-message-indicator.wrap-corner {
+            border-bottom-left-radius: 0;
+            margin-bottom: -1px;
+            position: relative;
+        }
+        
+        .voice-message-indicator.wrap-corner::before {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: -1px;
+            width: 18px;
+            height: 1px;
+            background: white;
+        }
+        
+        .voice-message-indicator.wrap-corner::after {
+            content: '';
+            position: absolute;
+            bottom: -18px;
+            left: -1px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 0 0 0 18px;
+            border-left: 1px solid #e9ecef;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
         .voice-message-indicator:hover {
             background: #f8f9fa;
             transform: translateY(-1px);
@@ -1320,6 +1350,14 @@
             if (userMessages.length > 0) {
                 const lastUserMessage = userMessages[userMessages.length - 1];
                 messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
+                
+                // 为紧挨着用户消息的语音气泡添加特殊样式
+                setTimeout(() => {
+                    const voiceIndicator = messageDiv.querySelector('.voice-message-indicator');
+                    if (voiceIndicator) {
+                        voiceIndicator.classList.add('wrap-corner');
+                    }
+                }, 10);
             } else {
                 // 如果没有用户消息，正常添加到末尾
                 messagesDiv.appendChild(messageDiv);
