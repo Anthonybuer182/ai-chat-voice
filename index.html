@@ -233,7 +233,7 @@
         }
         
         .message {
-            margin-bottom: 15px;
+            margin-bottom: 0;
             display: flex;
             animation: slideIn 0.3s ease;
         }
@@ -599,7 +599,7 @@
             border-radius: 18px;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin: 5px 0;
+            margin: 0;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
@@ -1315,7 +1315,15 @@
             // 语音消息直接使用语音指示器作为内容，不嵌套在message-content中
             messageDiv.innerHTML = voiceElement;
             
-            messagesDiv.appendChild(messageDiv);
+            // 查找最后一条用户消息，将语音回复插入到它后面
+            const userMessages = messagesDiv.querySelectorAll('.message.user');
+            if (userMessages.length > 0) {
+                const lastUserMessage = userMessages[userMessages.length - 1];
+                messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
+            } else {
+                // 如果没有用户消息，正常添加到末尾
+                messagesDiv.appendChild(messageDiv);
+            }
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
         
