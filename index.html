@@ -181,6 +181,44 @@
             box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
         }
 
+        /* TTS引擎选择器样式 */
+        .tts-selector {
+            margin-right: 15px;
+        }
+        
+        .tts-select {
+            padding: 6px 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            outline: none;
+        }
+        
+        .tts-select:hover {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+        }
+        
+        .tts-select:focus {
+            border-color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+        }
+        
+        .tts-select option {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
         
         .tab-content {
             display: none;
@@ -762,6 +800,14 @@
         <header>
             <div class="header-content">
                 <h1 class="app-title" id="appTitle">AI语音聊天系统</h1>
+                <!-- TTS引擎选择器 -->
+                <div class="tts-selector">
+                    <select class="tts-select" id="ttsEngine" onchange="changeTTSEngine()">
+                        <option value="gtts">gTTS</option>
+                        <option value="edgetts">EdgeTTS</option>
+                        <option value="elevenlabs">ElevenLabs</option>
+                    </select>
+                </div>
                 <!-- 语言选择器 -->
                 <div class="language-selector">
                     <button class="language-btn" id="languageToggle" onclick="toggleLanguage()">
@@ -890,6 +936,50 @@
                 ws2.send(JSON.stringify({
                     type: "config",
                     language: currentLanguage
+                }));
+            }
+        }
+
+        // 切换TTS引擎
+        function changeTTSEngine() {
+            const ttsEngine = document.getElementById('ttsEngine').value;
+            
+            // 发送到文本聊天WebSocket
+            if (ws1 && ws1.readyState === WebSocket.OPEN) {
+                ws1.send(JSON.stringify({
+                    type: "tts_config",
+                    engine: ttsEngine
+                }));
+            }
+            
+            // 发送到实时语音WebSocket
+            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                ws2.send(JSON.stringify({
+                    type: "tts_config",
+                    engine: ttsEngine
+                }));
+            }
+            
+            console.log(`TTS引擎已切换到: ${ttsEngine}`);
+        }
+
+        // 发送TTS配置到WebSocket
+        function sendTTSConfig() {
+            const ttsEngine = document.getElementById('ttsEngine').value;
+            
+            // 发送到文本聊天WebSocket
+            if (ws1 && ws1.readyState === WebSocket.OPEN) {
+                ws1.send(JSON.stringify({
+                    type: "tts_config",
+                    engine: ttsEngine
+                }));
+            }
+            
+            // 发送到实时语音WebSocket
+            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                ws2.send(JSON.stringify({
+                    type: "tts_config",
+                    engine: ttsEngine
                 }));
             }
         }
@@ -1062,6 +1152,13 @@
             ws1.onopen = () => {
                 updateStatus('status1', '已连接', true);
                 reconnectAttempts = 0;
+                
+                // 发送语言和TTS配置
+                ws1.send(JSON.stringify({
+                    type: "config",
+                    language: currentLanguage
+                }));
+                sendTTSConfig();
             };
             
             ws1.onmessage = async (event) => {
@@ -1102,11 +1199,12 @@
                 updateStatus('status2', '已连接 - 可以开始说话', true);
                 reconnectAttempts = 0;
                 
-                // 发送语言配置
+                // 发送语言和TTS配置
                 ws2.send(JSON.stringify({
                     type: "config",
                     language: currentLanguage
                 }));
+                sendTTSConfig();
             };
             
             ws2.onmessage = async (event) => {
