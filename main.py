@@ -529,6 +529,12 @@ async def websocket_chat(websocket: WebSocket):
                 os.unlink(audio_file)
                 
                 if transcribed_text:
+                    # 发送转录文本给前端
+                    await manager.send_json(websocket, {
+                        "type": "transcription",
+                        "text": transcribed_text
+                    })
+                    
                     # 添加到历史
                     chat_history.add_message(session_id, "user", transcribed_text)
                     

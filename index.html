@@ -1306,6 +1306,9 @@
                 
                 if (data.type === 'text_chunk') {
                     appendStreamingMessage('messages1', data.content, data.status);
+                } else if (data.type === 'transcription') {
+                    // 更新语音消息的显示内容为转录文本
+                    updateVoiceMessageWithTranscription(data.text);
                 } else if (data.type === 'audio') {
                     const messageElement = createVoiceMessageElement(data.audio_data);
                     addVoiceMessage('messages1', messageElement, 'assistant');
@@ -1624,6 +1627,23 @@
                 messagesDiv.appendChild(messageDiv);
             }
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // 更新语音消息显示为转录文本
+        function updateVoiceMessageWithTranscription(transcriptionText) {
+            const messagesDiv = document.getElementById('messages1');
+            const userMessages = messagesDiv.querySelectorAll('.message.user');
+            
+            if (userMessages.length > 0) {
+                const lastUserMessage = userMessages[userMessages.length - 1];
+                const messageContent = lastUserMessage.querySelector('.message-content');
+                
+                // 检查是否是"语音消息已发送"的消息
+                if (messageContent && messageContent.innerHTML.includes('语音消息已发送')) {
+                    // 替换为转录文本
+                    messageContent.innerHTML = transcriptionText;
+                }
+            }
         }
         
         // 添加流式消息
