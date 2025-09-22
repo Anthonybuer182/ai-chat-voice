@@ -381,7 +381,7 @@ async def websocket_chat(websocket: WebSocket):
             
             if message_type == "text":
                 # 处理文本消息
-                user_message = data.get("content", "")
+                user_message = data.get("message", "")
                 
                 # 添加到历史
                 chat_history.add_message(session_id, "user", user_message)
