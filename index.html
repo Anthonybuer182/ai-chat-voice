@@ -122,16 +122,17 @@
         }
         
         .language-btn {
-            padding: 8px 16px;
+            padding: 6px 12px;
             border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 20px;
+            border-radius: 16px;
             background: rgba(255, 255, 255, 0.1);
             color: white;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             backdrop-filter: blur(10px);
+            min-width: 50px;
         }
         
         .language-btn:hover {
@@ -171,20 +172,6 @@
             padding: 0;
             background: none;
             border-bottom: none;
-        }
-        
-        .language-btn {
-            padding: 8px 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            min-width: 80px;
         }
         
         .language-btn:hover {
@@ -778,7 +765,7 @@
                 <!-- 语言选择器 -->
                 <div class="language-selector">
                     <button class="language-btn" id="languageToggle" onclick="toggleLanguage()">
-                        中文
+                        中
                     </button>
                 </div>
             </div>
@@ -876,7 +863,7 @@
             
             // 更新按钮文字和提示
             const languageBtn = document.getElementById('languageToggle');
-            languageBtn.textContent = currentLanguage === 'zh' ? '中文' : 'English';
+            languageBtn.textContent = currentLanguage === 'zh' ? '中' : 'EN';
             languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
             
             // 更新界面文本
