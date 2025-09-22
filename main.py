@@ -200,9 +200,12 @@ class AIService:
         if engine == "gtts":
             return await self._gtts_tts(text, language, max_retries)
         elif engine == "edgetts":
+            # 优先尝试EdgeTTS，失败时自动回退到gTTS
             return await self._edgetts_tts(text, language, max_retries)
         elif engine == "elevenlabs":
             return await self._elevenlabs_tts(text, language, max_retries)
+        elif engine == "pyttsx3":
+            return await self._pyttsx3_tts(text, language, max_retries)
         else:
             logger.warning(f"未知的TTS引擎: {engine}, 使用gTTS作为后备")
             return await self._gtts_tts(text, language, max_retries)
@@ -250,36 +253,116 @@ class AIService:
     
     async def _edgetts_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
         """使用EdgeTTS进行语音合成（需要安装edge-tts）"""
+        # 检查是否安装了edge-tts
         try:
-            # 检查是否安装了edge-tts
+            import edge_tts
+        except ImportError:
+            logger.warning("edge-tts未安装，使用pip install edge-tts安装")
+            return await self._gtts_tts(text, language, max_retries)
+        
+        # 重试机制
+        for attempt in range(max_retries):
             try:
-                import edge_tts
-            except ImportError:
-                logger.warning("edge-tts未安装，使用pip install edge-tts安装")
-                return await self._gtts_tts(text, language, max_retries)
+                # 使用edge-tts
+                # 根据语言选择适当的语音
+                if language == "zh":
+                    voice = "zh-CN-XiaoxiaoNeural"  # 中文普通话女性语音
+                elif language == "en":
+                    voice = "en-US-AriaNeural"      # 英文女性语音
+                else:
+                    voice = "zh-CN-XiaoxiaoNeural"   # 默认中文语音
+                
+                communicate = edge_tts.Communicate(text, voice)
+                
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                # 设置超时
+                try:
+                    await asyncio.wait_for(communicate.save(tmp_path), timeout=30.0)
+                except asyncio.TimeoutError:
+                    logger.warning(f"EdgeTTS超时 (尝试 {attempt + 1}/{max_retries})")
+                    continue
+                
+                with open(tmp_path, 'rb') as f:
+                    audio_data = f.read()
+                
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
+                
+                # 检查音频数据是否有效
+                if len(audio_data) > 100:  # 确保有足够的音频数据
+                    logger.info("EdgeTTS成功")
+                    return audio_data
+                else:
+                    logger.warning(f"EdgeTTS生成空音频 (尝试 {attempt + 1}/{max_retries})")
+                    
+            except Exception as e:
+                logger.warning(f"EdgeTTS尝试 {attempt + 1}/{max_retries} 失败: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)  # 等待2秒后重试
+                
+                # 清理临时文件
+                try:
+                    if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                except:
+                    pass
+        
+        logger.error("EdgeTTS所有尝试都失败，回退到gTTS")
+        return await self._gtts_tts(text, language, max_retries)  # 失败时回退到gTTS
+    
+    async def _pyttsx3_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
+        """使用pyttsx3进行本地语音合成（无需网络）"""
+        try:
+            import pyttsx3
             
-            # 使用edge-tts
-            communicate = edge_tts.Communicate(text, language)
+            # 初始化引擎
+            engine = pyttsx3.init()
             
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+            # 设置语音属性
+            if language == "zh":
+                # 尝试设置中文语音（如果系统支持）
+                voices = engine.getProperty('voices')
+                for voice in voices:
+                    if 'chinese' in voice.name.lower() or 'zh' in voice.id.lower():
+                        engine.setProperty('voice', voice.id)
+                        break
+            
+            # 保存到临时文件
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
                 tmp_path = tmp.name
             
-            await communicate.save(tmp_path)
+            # 保存语音到文件
+            engine.save_to_file(text, tmp_path)
+            engine.runAndWait()
             
+            # 读取文件内容
             with open(tmp_path, 'rb') as f:
                 audio_data = f.read()
             
+            # 清理临时文件
             try:
                 os.unlink(tmp_path)
             except:
                 pass
             
-            logger.info("EdgeTTS成功")
-            return audio_data
+            if len(audio_data) > 100:
+                logger.info("pyttsx3 TTS成功")
+                return audio_data
+            else:
+                logger.warning("pyttsx3生成空音频，回退到gTTS")
+                return await self._gtts_tts(text, language, max_retries)
+                
+        except ImportError:
+            logger.warning("pyttsx3未安装，使用pip install pyttsx3安装")
+            return await self._gtts_tts(text, language, max_retries)
             
         except Exception as e:
-                logger.error(f"EdgeTTS失败: {e}")
-                return await self._gtts_tts(text, language, max_retries)  # 失败时回退到gTTS
+            logger.error(f"pyttsx3 TTS失败: {e}")
+            return await self._gtts_tts(text, language, max_retries)
     
     async def _elevenlabs_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
         """使用ElevenLabs进行语音合成（需要API密钥）"""
