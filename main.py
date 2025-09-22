@@ -568,7 +568,7 @@ async def websocket_chat(websocket: WebSocket):
                     
                     # 生成语音响应
                     tts_engine = data.get("tts_engine", "gtts")
-                    audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
+                    audio_response = await ai_service.text_to_speech_with_engine(full_response, tts_engine, language)
                     if audio_response:
                         await manager.send_json(websocket, {
                             "type": "audio",
