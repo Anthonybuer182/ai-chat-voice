@@ -188,12 +188,13 @@
             box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
         }
 
-        /* TTS引擎选择器样式 - 美化版 */
-        .tts-selector {
+        /* 自定义TTS选择器组件 */
+        .custom-tts-selector {
             position: relative;
+            min-width: 140px;
         }
         
-        .tts-select {
+        .custom-tts-select {
             padding: 8px 40px 8px 16px;
             border: 2px solid rgba(255, 255, 255, 0.4);
             border-radius: 20px;
@@ -205,13 +206,28 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(12px);
             outline: none;
-            appearance: none;
             min-width: 120px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 100;
+        }
+        
+        .custom-tts-select:hover {
+            border-color: rgba(255, 255, 255, 0.8);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(255, 255, 255, 0.3);
+        }
+        
+        .custom-tts-select.active {
+            border-color: rgba(255, 255, 255, 0.9);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+            border-radius: 20px 20px 0 0;
         }
         
         /* 自定义下拉箭头 */
-        .tts-selector::after {
+        .custom-tts-selector::after {
             content: '▼';
             position: absolute;
             right: 12px;
@@ -221,41 +237,94 @@
             font-size: 10px;
             pointer-events: none;
             transition: transform 0.3s ease;
+            z-index: 101;
         }
         
-        .tts-select:hover {
-            border-color: rgba(255, 255, 255, 0.8);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.15) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(255, 255, 255, 0.3);
-        }
-        
-        .tts-select:focus {
-            border-color: rgba(255, 255, 255, 0.9);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%);
-            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
-        }
-        
-        .tts-select:focus + .tts-selector::after {
+        .custom-tts-selector.active::after {
             transform: translateY(-50%) rotate(180deg);
         }
         
-        .tts-select option {
+        /* 自定义下拉菜单 */
+        .custom-tts-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 0 0 20px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            z-index: 99;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .custom-tts-dropdown.active {
+            display: block;
+        }
+        
+        .custom-tts-option {
+            padding: 12px 16px;
             color: white;
             font-weight: 600;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .tts-select option:hover {
+        .custom-tts-option:last-child {
+            border-bottom: none;
+        }
+        
+        .custom-tts-option:hover {
             background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateX(5px);
         }
         
-        .tts-select option:checked {
+        .custom-tts-option.selected {
             background: linear-gradient(135deg, #4a5fcf 0%, #5d3785 100%);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 自定义滚动条 */
+        .custom-tts-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-tts-dropdown::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        
+        .custom-tts-dropdown::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+        }
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            .custom-tts-select {
+                min-width: 100px;
+                font-size: 12px;
+                padding: 6px 32px 6px 12px;
+            }
+            
+            .custom-tts-selector::after {
+                right: 8px;
+                font-size: 9px;
+            }
+            
+            .custom-tts-dropdown {
+                max-height: 150px;
+            }
+            
+            .custom-tts-option {
+                padding: 10px 12px;
+                font-size: 12px;
+            }
         }
         
         /* 移动端优化 */
@@ -884,10 +953,17 @@
                             中
                         </button>
                     </div>
-                    <!-- TTS引擎选择器 -->
-                    <div class="tts-selector">
-                        <select class="tts-select" id="ttsEngine" onchange="changeTTSEngine()">
-                            <option value="gtts">gTTS</option>
+                    <!-- 自定义TTS引擎选择器 -->
+                    <div class="custom-tts-selector" id="customTtsSelector">
+                        <div class="custom-tts-select" id="customTtsSelect">gTTS</div>
+                        <div class="custom-tts-dropdown" id="customTtsDropdown">
+                            <div class="custom-tts-option" data-value="gtts">gTTS</div>
+                            <div class="custom-tts-option" data-value="edgetts">EdgeTTS</div>
+                            <div class="custom-tts-option" data-value="elevenlabs">ElevenLabs</div>
+                        </div>
+                        <!-- 隐藏的原生select用于表单提交 -->
+                        <select class="tts-select" id="ttsEngine" style="display: none;">
+                            <option value="gtts" selected>gTTS</option>
                             <option value="edgetts">EdgeTTS</option>
                             <option value="elevenlabs">ElevenLabs</option>
                         </select>
@@ -1710,8 +1786,96 @@
             }, 3000);
         }
         
+        // 自定义TTS选择器功能
+        function setupCustomTtsSelector() {
+            const selector = document.getElementById('customTtsSelector');
+            const select = document.getElementById('customTtsSelect');
+            const dropdown = document.getElementById('customTtsDropdown');
+            const options = dropdown.querySelectorAll('.custom-tts-option');
+            const nativeSelect = document.getElementById('ttsEngine');
+            
+            // 点击选择器切换下拉菜单
+            select.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const isActive = selector.classList.contains('active');
+                
+                // 关闭所有其他下拉菜单
+                document.querySelectorAll('.custom-tts-selector').forEach(s => {
+                    if (s !== selector) {
+                        s.classList.remove('active');
+                        s.querySelector('.custom-tts-dropdown').classList.remove('active');
+                    }
+                });
+                
+                // 切换当前下拉菜单
+                selector.classList.toggle('active');
+                dropdown.classList.toggle('active');
+                
+                if (!isActive) {
+                    select.classList.add('active');
+                } else {
+                    select.classList.remove('active');
+                }
+            });
+            
+            // 点击选项
+            options.forEach(option => {
+                option.addEventListener('click', function() {
+                    const value = this.getAttribute('data-value');
+                    const text = this.textContent;
+                    
+                    // 更新显示文本
+                    select.textContent = text;
+                    
+                    // 更新选中状态
+                    options.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    // 更新原生select
+                    nativeSelect.value = value;
+                    
+                    // 关闭下拉菜单
+                    selector.classList.remove('active');
+                    dropdown.classList.remove('active');
+                    select.classList.remove('active');
+                    
+                    // 触发change事件
+                    const event = new Event('change');
+                    nativeSelect.dispatchEvent(event);
+                    
+                    // 调用原有的changeTTSEngine函数
+                    changeTTSEngine();
+                });
+            });
+            
+            // 点击页面其他区域关闭下拉菜单
+            document.addEventListener('click', function(e) {
+                if (!selector.contains(e.target)) {
+                    selector.classList.remove('active');
+                    dropdown.classList.remove('active');
+                    select.classList.remove('active');
+                }
+            });
+            
+            // 阻止下拉菜单内的点击事件冒泡
+            dropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
+            // 初始化选中状态
+            const initialValue = nativeSelect.value;
+            const initialOption = dropdown.querySelector(`[data-value="${initialValue}"]`);
+            if (initialOption) {
+                initialOption.classList.add('selected');
+                select.textContent = initialOption.textContent;
+            }
+        }
+        
         // 页面加载完成后初始化
-        window.addEventListener('load', init);
+        window.addEventListener('load', function() {
+            init();
+            setupCustomTtsSelector();
+        });
         
         // 页面关闭时清理
         window.addEventListener('beforeunload', () => {
