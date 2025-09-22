@@ -955,19 +955,19 @@
                     </div>
                     <!-- 自定义TTS引擎选择器 -->
                     <div class="custom-tts-selector" id="customTtsSelector">
-                        <div class="custom-tts-select" id="customTtsSelect">gTTS</div>
+                        <div class="custom-tts-select" id="customTtsSelect">pyttsx3</div>
                         <div class="custom-tts-dropdown" id="customTtsDropdown">
+                            <div class="custom-tts-option" data-value="pyttsx3">pyttsx3</div>
                             <div class="custom-tts-option" data-value="gtts">gTTS</div>
                             <div class="custom-tts-option" data-value="edgetts">EdgeTTS</div>
                             <div class="custom-tts-option" data-value="elevenlabs">ElevenLabs</div>
-                            <div class="custom-tts-option" data-value="pyttsx3">pyttsx3</div>
                         </div>
                         <!-- 隐藏的原生select用于表单提交 -->
                         <select class="tts-select" id="ttsEngine" style="display: none;">
-                            <option value="gtts" selected>gTTS</option>
+                            <option value="pyttsx3" selected>pyttsx3</option>
+                            <option value="gtts">gTTS</option>
                             <option value="edgetts">EdgeTTS</option>
                             <option value="elevenlabs">ElevenLabs</option>
-                            <option value="pyttsx3">pyttsx3</option>
                         </select>
                     </div>
                 </div>
