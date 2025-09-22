@@ -496,6 +496,17 @@
             cursor: pointer;
         }
         
+        /* 中等屏幕优化 - 针对692px左右宽度 */
+        @media (max-width: 768px) and (min-width: 481px) {
+            .tab-content {
+                height: calc(100% - 110px);
+            }
+            
+            .input-area {
+                padding: 15px 18px;
+            }
+        }
+        
         /* 移动端响应式优化 */
         @media (max-width: 768px) {
             body {
@@ -544,6 +555,10 @@
             
             /* 更窄屏幕的优化 - 只在480px以下应用固定宽度 */
             @media (max-width: 480px) {
+                .tab-content {
+                    height: calc(100% - 105px);
+                }
+                
                 .input-area {
                     padding: 10px 12px;
                     gap: 6px;
@@ -588,6 +603,10 @@
             
             /* 超窄屏幕优化 */
             @media (max-width: 360px) {
+                .tab-content {
+                    height: calc(100% - 100px);
+                }
+                
                 .input-area {
                     padding: 8px 10px;
                 }
