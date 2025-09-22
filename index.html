@@ -999,23 +999,6 @@
         // 切换TTS引擎
         function changeTTSEngine() {
             const ttsEngine = document.getElementById('ttsEngine').value;
-            
-            // 发送到文本聊天WebSocket
-            if (ws1 && ws1.readyState === WebSocket.OPEN) {
-                ws1.send(JSON.stringify({
-                    type: "tts_config",
-                    engine: ttsEngine
-                }));
-            }
-            
-            // 发送到实时语音WebSocket
-            if (ws2 && ws2.readyState === WebSocket.OPEN) {
-                ws2.send(JSON.stringify({
-                    type: "tts_config",
-                    engine: ttsEngine
-                }));
-            }
-            
             console.log(`TTS引擎已切换到: ${ttsEngine}`);
         }
 
@@ -1027,7 +1010,7 @@
             if (ws1 && ws1.readyState === WebSocket.OPEN) {
                 ws1.send(JSON.stringify({
                     type: "tts_config",
-                    engine: ttsEngine
+                    tts_engine: ttsEngine
                 }));
             }
             
@@ -1035,11 +1018,11 @@
             if (ws2 && ws2.readyState === WebSocket.OPEN) {
                 ws2.send(JSON.stringify({
                     type: "tts_config",
-                    engine: ttsEngine
+                    tts_engine: ttsEngine
                 }));
             }
         }
-        
+
         // 更新界面语言
         function updateInterfaceLanguage(lang) {
             const elements = {
@@ -1212,9 +1195,9 @@
                 // 发送语言和TTS配置
                 ws1.send(JSON.stringify({
                     type: "config",
-                    language: currentLanguage
+                    language: currentLanguage,
+                    tts_engine: document.getElementById('ttsEngine').value
                 }));
-                sendTTSConfig();
             };
             
             ws1.onmessage = async (event) => {
@@ -1258,9 +1241,9 @@
                 // 发送语言和TTS配置
                 ws2.send(JSON.stringify({
                     type: "config",
-                    language: currentLanguage
+                    language: currentLanguage,
+                    tts_engine: document.getElementById('ttsEngine').value
                 }));
-                sendTTSConfig();
             };
             
             ws2.onmessage = async (event) => {
@@ -1321,7 +1304,8 @@
                 ws1.send(JSON.stringify({
                     type: "text",
                     message: message,
-                    language: currentLanguage  // 添加语言参数
+                    language: currentLanguage,  // 添加语言参数
+                    tts_engine: document.getElementById('ttsEngine').value  // 添加TTS引擎参数
                 }));
                 addMessage('messages1', message, 'user');
                 textInput.value = '';
@@ -1419,7 +1403,8 @@
                         type: 'audio',
                         audio_data: base64Audio,
                         duration: audioBlob.size / 44100, // 估算时长
-                        language: currentLanguage  // 添加语言参数
+                        language: currentLanguage,  // 添加语言参数
+                        tts_engine: document.getElementById('ttsEngine').value  // 添加TTS引擎参数
                     }));
                     showTypingIndicator('typing1');
                 };

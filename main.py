@@ -39,9 +39,9 @@ class Config:
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "your-deepseek-api-key-here")
     DEEPSEEK_MODEL = "deepseek-chat"
     DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
-    WHISPER_MODEL = "base"  # tiny, base, small, medium, large
-    TTS_LANGUAGE = "zh"  # 中文
+    WHISPER_MODEL = "base"  # tiny, base, small, medium, large中文
     SAMPLE_RATE = 16000
+
     
     # 系统提示词模板
     SYSTEM_PROMPTS = {
@@ -159,6 +159,9 @@ audio_processor = AudioProcessor()
 
 # AI服务
 class AIService:
+    def __init__(self):
+        pass
+    
     @staticmethod
     async def get_chat_response(messages: List[dict]) -> str:
         """获取DeepSeek聊天响应"""
@@ -192,13 +195,23 @@ class AIService:
             logger.error(f"DeepSeek API stream error: {e}")
             yield "抱歉，我遇到了一些问题。请稍后再试。"
     
-    @staticmethod
-    async def text_to_speech(text: str, max_retries: int = 3) -> bytes:
-        """将文本转换为语音，带有重试机制和备用方案"""
-        # 方法1: 使用gTTS（主要方案）
+    async def text_to_speech_with_engine(self, text: str, engine: str, language: str = "zh", max_retries: int = 3) -> bytes:
+        """使用指定引擎将文本转换为语音"""
+        if engine == "gtts":
+            return await self._gtts_tts(text, language, max_retries)
+        elif engine == "edgetts":
+            return await self._edgetts_tts(text, language, max_retries)
+        elif engine == "elevenlabs":
+            return await self._elevenlabs_tts(text, language, max_retries)
+        else:
+            logger.warning(f"未知的TTS引擎: {engine}, 使用gTTS作为后备")
+            return await self._gtts_tts(text, language, max_retries)
+
+    async def _gtts_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
+        """使用gTTS进行语音合成"""
         for attempt in range(max_retries):
             try:
-                tts = gTTS(text=text, lang=config.TTS_LANGUAGE, slow=False)
+                tts = gTTS(text=text, lang=language, slow=False)
                 
                 # 使用不同的方法避免文件访问冲突
                 with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
@@ -217,11 +230,11 @@ class AIService:
                 except:
                     pass  # 忽略删除错误
                 
-                logger.info(f"TTS成功 (尝试 {attempt + 1})")
+                logger.info(f"gTTS成功 (尝试 {attempt + 1})")
                 return audio_data
                 
             except Exception as e:
-                logger.warning(f"TTS尝试 {attempt + 1} 失败: {e}")
+                logger.warning(f"gTTS尝试 {attempt + 1} 失败: {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(1)  # 等待1秒后重试
                 else:
@@ -232,13 +245,81 @@ class AIService:
                     except:
                         pass
         
-        # 方法2: 备用方案 - 使用在线TTS API（如Microsoft Edge TTS模拟）
-        logger.info("尝试备用TTS方案")
+        logger.error("gTTS所有尝试都失败")
+        return b""
+    
+    async def _edgetts_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
+        """使用EdgeTTS进行语音合成（需要安装edge-tts）"""
         try:
-            return await AIService._fallback_tts(text)
+            # 检查是否安装了edge-tts
+            try:
+                import edge_tts
+            except ImportError:
+                logger.warning("edge-tts未安装，使用pip install edge-tts安装")
+                return await self._gtts_tts(text, language, max_retries)
+            
+            # 使用edge-tts
+            communicate = edge_tts.Communicate(text, language)
+            
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                tmp_path = tmp.name
+            
+            await communicate.save(tmp_path)
+            
+            with open(tmp_path, 'rb') as f:
+                audio_data = f.read()
+            
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+            
+            logger.info("EdgeTTS成功")
+            return audio_data
+            
         except Exception as e:
-            logger.error(f"备用TTS方案也失败: {e}")
-            return b""
+                logger.error(f"EdgeTTS失败: {e}")
+                return await self._gtts_tts(text, language, max_retries)  # 失败时回退到gTTS
+    
+    async def _elevenlabs_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
+        """使用ElevenLabs进行语音合成（需要API密钥）"""
+        elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not elevenlabs_api_key:
+            logger.warning("ElevenLabs API密钥未设置，使用gTTS作为后备")
+            return await self._gtts_tts(text, language, max_retries)
+        
+        try:
+            # 使用ElevenLabs API
+            import requests
+            
+            url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": elevenlabs_api_key
+            }
+            
+            data = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.5
+                }
+            }
+            
+            response = requests.post(url, json=data, headers=headers)
+            
+            if response.status_code == 200:
+                logger.info("ElevenLabs TTS成功")
+                return response.content
+            else:
+                logger.error(f"ElevenLabs API错误: {response.status_code} - {response.text}")
+                return await self._gtts_tts(text, language, max_retries)
+                
+        except Exception as e:
+            logger.error(f"ElevenLabs TTS失败: {e}")
+            return await self._gtts_tts(text, language, max_retries)
     
     @staticmethod
     async def _fallback_tts(text: str) -> bytes:
@@ -274,6 +355,7 @@ class AIService:
             logger.error(f"Whisper error: {e}")
             return ""
 
+# 创建AIService实例
 ai_service = AIService()
 
 # 路由
@@ -340,7 +422,8 @@ async def websocket_chat(websocket: WebSocket):
                 
                 # 生成语音
                 if full_response:
-                    audio_data = await ai_service.text_to_speech(full_response)
+                    tts_engine = data.get("tts_engine", "gtts")
+                    audio_data = await ai_service.text_to_speech_with_engine(full_response, tts_engine, language)
                     if audio_data:
                         await manager.send_json(websocket, {
                             "type": "audio",
@@ -401,7 +484,8 @@ async def websocket_chat(websocket: WebSocket):
                     chat_history.add_message(session_id, "assistant", full_response)
                     
                     # 生成语音响应
-                    audio_response = await ai_service.text_to_speech(full_response)
+                    tts_engine = data.get("tts_engine", "gtts")
+                    audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
                     if audio_response:
                         await manager.send_json(websocket, {
                             "type": "audio",
@@ -410,7 +494,7 @@ async def websocket_chat(websocket: WebSocket):
                     
                     # 发送完成信号
                     await manager.send_json(websocket, {"type": "complete"})
-    
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, "chat")
         chat_history.clear_history(session_id)
@@ -491,7 +575,8 @@ async def websocket_voice(websocket: WebSocket):
                             chat_history.add_message(session_id, "assistant", response_text)
                             
                             # 生成语音响应
-                            audio_response = await ai_service.text_to_speech(response_text)
+                            tts_engine = data.get("tts_engine", "gtts")
+                            audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
                             if audio_response:
                                 await manager.send_json(websocket, {
                                     "type": "audio",
