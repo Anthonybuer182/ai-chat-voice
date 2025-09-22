@@ -391,18 +391,6 @@
             transition: height 0.1s ease;
         }
         
-        .typing-indicator {
-            display: none;
-            padding: 10px;
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-        }
-        
-        .typing-indicator.show {
-            display: block;
-        }
-        
         .audio-controls {
             display: flex;
             gap: 10px;
@@ -763,9 +751,6 @@
                 连接状态：未连接
             </div>
             <div class="chat-messages" id="messages1"></div>
-            <div class="typing-indicator" id="typing1">
-                AI正在输入中...
-            </div>
             <div class="input-area">
                 <input type="text" class="input-field" id="textInput" 
                        placeholder="输入消息..." 
@@ -884,8 +869,7 @@
                 'textInput-placeholder': lang === 'zh' ? '输入消息...' : 'Type a message...',
                 'send-btn': lang === 'zh' ? '发送' : 'Send',
                 'record-btn': lang === 'zh' ? '录音' : 'Record',
-                'volume-label': lang === 'zh' ? '<i class=\"fas fa-volume-up\"></i> 音量：' : '<i class=\"fas fa-volume-up\"></i> Volume:',
-                'typing-indicator': lang === 'zh' ? 'AI正在输入中...' : 'AI is typing...'
+                'volume-label': lang === 'zh' ? '<i class="fas fa-volume-up"></i> 音量：' : '<i class="fas fa-volume-up"></i> Volume:'
             };
             
             // 更新元素文本
@@ -911,10 +895,6 @@
                 recordBtn.setAttribute('aria-label', lang === 'zh' ? '录音' : 'Record');
             }
             document.querySelector('.audio-controls span:first-child').innerHTML = elements['volume-label'];
-            document.getElementById('typing1').textContent = elements['typing-indicator'];
-            if (document.getElementById('typing2')) {
-                document.getElementById('typing2').textContent = elements['typing-indicator'];
-            }
             
             // 更新状态指示器
             const status1 = document.getElementById('status1');
@@ -1448,23 +1428,6 @@
                     '<i class="fas fa-microphone"></i> Record';
                 btn.classList.remove('recording');
                 btn.setAttribute('aria-label', currentLanguage === 'zh' ? '录音' : 'Record');
-            }
-        }
-        
-        // 显示输入指示器
-        function showTypingIndicator(indicatorId) {
-            const indicator = document.getElementById(indicatorId);
-            if (indicator) {
-                indicator.classList.add('show');
-                indicator.innerHTML = '<span class="loading-spinner"></span> AI正在思考中...';
-            }
-        }
-        
-        // 隐藏输入指示器
-        function hideTypingIndicator(indicatorId) {
-            const indicator = document.getElementById(indicatorId);
-            if (indicator) {
-                indicator.classList.remove('show');
             }
         }
         
