@@ -802,43 +802,11 @@
             padding: 8px 12px;
             background: white;
             border: 1px solid #e9ecef;
-            border-radius: 18px;
+            border-radius: 18px 18px 18px 0px;
             cursor: pointer;
             transition: all 0.3s ease;
             margin: 0;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* 特殊语音气泡样式 - 语音消息左下角包裹文本消息左上角 */
-        .voice-message-indicator.wrap-corner {
-            border-bottom-left-radius: 0;
-            margin-bottom: -2px;
-            position: relative;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-        }
-        
-        .voice-message-indicator.wrap-corner::before {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: -1px;
-            width: 20px;
-            height: 2px;
-            background: linear-gradient(to right, white 0%, white 18px, transparent 18px);
-        }
-        
-        .voice-message-indicator.wrap-corner::after {
-            content: '';
-            position: absolute;
-            bottom: -20px;
-            left: -1px;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 0 0 0 20px;
-            border-left: 1px solid #e9ecef;
-            border-bottom: 1px solid #e9ecef;
-            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.05);
         }
         
         /* 为文本消息添加轻微阴影增强层次感 */
@@ -1615,14 +1583,6 @@
             if (userMessages.length > 0) {
                 const lastUserMessage = userMessages[userMessages.length - 1];
                 messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
-                
-                // 为紧挨着用户消息的语音气泡添加特殊样式
-                setTimeout(() => {
-                    const voiceIndicator = messageDiv.querySelector('.voice-message-indicator');
-                    if (voiceIndicator) {
-                        voiceIndicator.classList.add('wrap-corner');
-                    }
-                }, 10);
             } else {
                 // 如果没有用户消息，正常添加到末尾
                 messagesDiv.appendChild(messageDiv);
