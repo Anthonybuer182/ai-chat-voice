@@ -1628,19 +1628,21 @@
                 const messageContent = currentStreamMessage.querySelector('.message-content');
                 const thinkingDots = messageContent.querySelector('.thinking-dots');
                 
-                // 只有在有实际文本内容到达时才移除思考指示器
-                // 并且只在第一次有内容时移除，避免重复移除
-                if (content && content.trim() !== '' && thinkingDots && thinkingDots.parentNode) {
-                    thinkingDots.remove();
-                    
-                    const textElement = document.createElement('span');
-                    messageContent.appendChild(textElement);
-                    textElement.textContent = content;
-                } else if (content && content.trim() !== '') {
-                    // 如果已经有文本元素，直接追加内容
-                    const textElement = messageContent.querySelector('span');
-                    if (textElement) {
-                        textElement.textContent += content;
+                // 处理内容到达的逻辑
+                if (content && content.trim() !== '') {
+                    // 如果思考指示器还存在，先移除它并创建文本元素
+                    if (thinkingDots && thinkingDots.parentNode) {
+                        thinkingDots.remove();
+                        
+                        const textElement = document.createElement('span');
+                        messageContent.appendChild(textElement);
+                        textElement.textContent = content;
+                    } else {
+                        // 如果已经有文本元素，直接追加内容
+                        const textElement = messageContent.querySelector('span');
+                        if (textElement) {
+                            textElement.textContent += content;
+                        }
                     }
                 }
                 
