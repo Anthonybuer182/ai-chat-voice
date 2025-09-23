@@ -1286,8 +1286,6 @@
                         const audioId = messageElement.match(/id="([^"]+)"/)[1];
                         toggleAudioPlayback(audioId, data.audio_data);
                     }, 100);
-                } else if (data.type === 'complete') {
-                    hideTypingIndicator('typing1');
                 }
             };
             
@@ -1383,7 +1381,6 @@
                 addMessage('messages1', message, 'user');
                 textInput.value = '';
                 textInput.focus();
-                showTypingIndicator('typing1');
                 
                 // 禁用发送按钮直到有新输入
                 const sendBtn = document.querySelector('.btn-primary');
@@ -1479,7 +1476,6 @@
                         language: currentLanguage,  // 添加语言参数
                         tts_engine: document.getElementById('ttsEngine').value  // 添加TTS引擎参数
                     }));
-                    showTypingIndicator('typing1');
                 };
                 reader.readAsDataURL(audioBlob);
                 addMessage('messages1', '<i class="fas fa-microphone"></i> 语音消息已发送', 'user');
@@ -1631,56 +1627,31 @@
             if (currentStreamMessage) {
                 const messageContent = currentStreamMessage.querySelector('.message-content');
                 const thinkingDots = messageContent.querySelector('.thinking-dots');
-                if (thinkingDots) {
-                    thinkingDots.remove();
-                }
                 
-                const textElement = messageContent.querySelector('span') || document.createElement('span');
-                if (!textElement.parentNode) {
-                    messageContent.appendChild(textElement);
+                // 如果有内容到达，移除思考指示器并显示文本
+                if (content && content.trim() !== '') {
+                    if (thinkingDots) {
+                        thinkingDots.remove();
+                    }
+                    
+                    const textElement = messageContent.querySelector('span') || document.createElement('span');
+                    if (!textElement.parentNode) {
+                        messageContent.appendChild(textElement);
+                    }
+                    
+                    textElement.textContent += content;
                 }
                 
                 if (status === 'end') {
-                    // 结束状态，不添加内容，只处理清理
+                    // 结束状态，清理
                     currentStreamMessage = null;
-                } else {
-                    // start 或 continue 状态，添加内容
-                    textElement.textContent += content;
                 }
                 
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
         }
         
-        // 显示思考指示器
-        function showTypingIndicator(containerId) {
-            const messagesDiv = document.getElementById(containerId.replace('typing', 'messages'));
-            
-            // 移除现有的思考指示器（如果有）
-            hideTypingIndicator(containerId);
-            
-            // 创建思考指示器并直接添加到消息内容中（不创建单独气泡）
-            const typingIndicator = document.createElement('div');
-            typingIndicator.id = containerId;
-            typingIndicator.className = 'thinking-dots';
-            typingIndicator.innerHTML = `
-                <div class="thinking-dot"></div>
-                <div class="thinking-dot"></div>
-                <div class="thinking-dot"></div>
-            `;
-            
-            // 将消息气泡添加到消息容器中
-            messagesDiv.appendChild(typingIndicator);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-        
-        // 隐藏思考指示器
-        function hideTypingIndicator(containerId) {
-            const typingIndicator = document.getElementById(containerId);
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-        }
+
         
         // 更新状态（支持双语）
         function updateStatus(statusId, text, isConnected) {
