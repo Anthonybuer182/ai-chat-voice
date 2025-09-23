@@ -523,17 +523,19 @@ async def websocket_chat(websocket: WebSocket):
                 
                 # 发送流式响应
                 full_response = ""
+                # 先发送start状态
+                await manager.send_json(websocket, {
+                    "type": "text_chunk",
+                    "content": "",
+                    "status": "start"
+                })
+                
                 async for chunk in ai_service.get_chat_response_stream(messages):
-                    # 确定状态：如果是第一个块就是start，最后一个块就是end，中间的是continue
-                    if not full_response:  # 第一个块
-                        status = "start"
-                    else:
-                        status = "continue"
-                    
+                    # 发送continue状态
                     await manager.send_json(websocket, {
                         "type": "text_chunk",
                         "content": chunk,
-                        "status": status
+                        "status": "continue"
                     })
                     full_response += chunk
                 
@@ -593,16 +595,11 @@ async def websocket_chat(websocket: WebSocket):
                     # 发送流式文本响应
                     full_response = ""
                     async for chunk in ai_service.get_chat_response_stream(messages):
-                        # 确定状态：如果是第一个块就是start，最后一个块就是end，中间的是continue
-                        if not full_response:  # 第一个块
-                            status = "start"
-                        else:
-                            status = "continue"
-                        
+                        # 发送continue状态
                         await manager.send_json(websocket, {
                             "type": "text_chunk",
                             "content": chunk,
-                            "status": status
+                            "status": "continue"
                         })
                         full_response += chunk
                     
