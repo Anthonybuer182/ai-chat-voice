@@ -387,7 +387,7 @@ class AIService:
             logger.warning("ElevenLabs API密钥未设置，使用gTTS作为后备")
             return await self._gtts_tts(text, language, max_retries)
         
-        # 根据语言选择语音
+        # 根据语言选择语音 - 使用多语言模型时，语音选择更重要
         voice_id = self._get_elevenlabs_voice_id(language)
         
         # 重试机制 - 立即重试，无等待
@@ -405,7 +405,7 @@ class AIService:
                 
                 data = {
                     "text": text,
-                    "model_id": "eleven_multilingual_v2",  # 使用多语言模型
+                    "model_id": "eleven_multilingual_v2",  # 使用多语言模型，自动处理语言检测
                     "voice_settings": {
                         "stability": 0.5,
                         "similarity_boost": 0.75,
@@ -445,9 +445,9 @@ class AIService:
     
     def _get_elevenlabs_voice_id(self, language: str) -> str:
         """根据语言获取ElevenLabs语音ID"""
-        # 常用语音ID映射
+        # 常用语音ID映射 - 为不同语言选择更适合的语音
         voice_mapping = {
-            "zh": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性（支持中文）
+            "zh": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性（支持中文发音）
             "en": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性
             "ja": "AZnzlPK1z2Yr1q1dQxQa",  # Dorothy - 日语女性
             "ko": "XrExE9yKIg1WjnnlVkGX",  # Lily - 韩语女性
