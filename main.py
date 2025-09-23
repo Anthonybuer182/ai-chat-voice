@@ -387,39 +387,87 @@ class AIService:
             logger.warning("ElevenLabs API密钥未设置，使用gTTS作为后备")
             return await self._gtts_tts(text, language, max_retries)
         
-        try:
-            # 使用ElevenLabs API
-            import requests
-            
-            url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"
-            headers = {
-                "Accept": "audio/mpeg",
-                "Content-Type": "application/json",
-                "xi-api-key": elevenlabs_api_key
-            }
-            
-            data = {
-                "text": text,
-                "model_id": "eleven_monolingual_v1",
-                "voice_settings": {
-                    "stability": 0.5,
-                    "similarity_boost": 0.5
-                }
-            }
-            
-            response = requests.post(url, json=data, headers=headers)
-            
-            if response.status_code == 200:
-                logger.info("ElevenLabs TTS成功")
-                return response.content
-            else:
-                logger.error(f"ElevenLabs API错误: {response.status_code} - {response.text}")
-                return await self._gtts_tts(text, language, max_retries)
+        # 根据语言选择语音
+        voice_id = self._get_elevenlabs_voice_id(language)
+        
+        # 重试机制 - 立即重试，无等待
+        for attempt in range(max_retries):
+            try:
+                # 使用同步HTTP请求
+                import requests
                 
-        except Exception as e:
-            logger.error(f"ElevenLabs TTS失败: {e}")
-            return await self._gtts_tts(text, language, max_retries)
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                headers = {
+                    "Accept": "audio/mpeg",
+                    "Content-Type": "application/json",
+                    "xi-api-key": elevenlabs_api_key
+                }
+                
+                data = {
+                    "text": text,
+                    "model_id": "eleven_multilingual_v2",  # 使用多语言模型
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.75,
+                        "style": 0.5,
+                        "use_speaker_boost": True
+                    }
+                }
+                
+                # 同步请求，5秒超时
+                response = requests.post(url, json=data, headers=headers, timeout=5.0)
+                
+                if response.status_code == 200:
+                    logger.info(f"ElevenLabs TTS成功 (尝试 {attempt + 1}/{max_retries})")
+                    return response.content
+                else:
+                    logger.warning(f"ElevenLabs API错误 (尝试 {attempt + 1}/{max_retries}): {response.status_code} - {response.text[:200]}")
+                    # 立即重试下一次
+                    continue
+                    
+            except requests.Timeout:
+                logger.warning(f"ElevenLabs TTS超时 (尝试 {attempt + 1}/{max_retries})")
+                # 立即重试下一次
+                continue
+                
+            except requests.RequestException as e:
+                logger.error(f"ElevenLabs网络错误 (尝试 {attempt + 1}/{max_retries}): {e}")
+                # 立即重试下一次
+                continue
+                
+            except Exception as e:
+                logger.error(f"ElevenLabs TTS未知错误 (尝试 {attempt + 1}/{max_retries}): {e}")
+                # 立即重试下一次
+                continue
+        
+        logger.error("ElevenLabs所有尝试都失败，回退到gTTS")
+        return await self._gtts_tts(text, language, max_retries)
     
+    def _get_elevenlabs_voice_id(self, language: str) -> str:
+        """根据语言获取ElevenLabs语音ID"""
+        # 常用语音ID映射
+        voice_mapping = {
+            "zh": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性（支持中文）
+            "en": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性
+            "ja": "AZnzlPK1z2Yr1q1dQxQa",  # Dorothy - 日语女性
+            "ko": "XrExE9yKIg1WjnnlVkGX",  # Lily - 韩语女性
+            "es": "MF3mGyEYCl7XYWbV9V6O",  # Emily - 西班牙语女性
+            "fr": "N2lVS1w4EtoT3dr4eOWO",  # Charlotte - 法语女性
+            "de": "ThT5KcBeYPX3keUQqHPh",  # Sarah - 德语女性
+            "it": "pNInz6obpgDQGcFmaJgB",  # Grace - 意大利语女性
+            "pt": "IKne3meq5aSn9XLyUdCD",  # Nicole - 葡萄牙语女性
+            "ru": "VR6AewLTigWG4xSOukaG",  # Dasha - 俄语女性
+            "ar": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性（阿拉伯语支持有限）
+            "hi": "21m00Tcm4TlvDq8ikWAM"   # Rachel - 英语女性（印地语支持有限）
+        }
+        
+        # 获取环境变量中配置的语音ID（如果存在）
+        custom_voice_id = os.getenv("ELEVENLABS_VOICE_ID")
+        if custom_voice_id:
+            return custom_voice_id
+            
+        return voice_mapping.get(language, "21m00Tcm4TlvDq8ikWAM")  # 默认语音
+                
     @staticmethod
     async def speech_to_text(audio_file: str) -> str:
         """将语音转换为文本"""
