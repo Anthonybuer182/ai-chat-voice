@@ -1628,18 +1628,20 @@
                 const messageContent = currentStreamMessage.querySelector('.message-content');
                 const thinkingDots = messageContent.querySelector('.thinking-dots');
                 
-                // 如果有内容到达，移除思考指示器并显示文本
-                if (content && content.trim() !== '') {
-                    if (thinkingDots) {
-                        thinkingDots.remove();
-                    }
+                // 只有在有实际文本内容到达时才移除思考指示器
+                // 并且只在第一次有内容时移除，避免重复移除
+                if (content && content.trim() !== '' && thinkingDots && thinkingDots.parentNode) {
+                    thinkingDots.remove();
                     
-                    const textElement = messageContent.querySelector('span') || document.createElement('span');
-                    if (!textElement.parentNode) {
-                        messageContent.appendChild(textElement);
+                    const textElement = document.createElement('span');
+                    messageContent.appendChild(textElement);
+                    textElement.textContent = content;
+                } else if (content && content.trim() !== '') {
+                    // 如果已经有文本元素，直接追加内容
+                    const textElement = messageContent.querySelector('span');
+                    if (textElement) {
+                        textElement.textContent += content;
                     }
-                    
-                    textElement.textContent += content;
                 }
                 
                 if (status === 'end') {
