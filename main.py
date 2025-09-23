@@ -316,53 +316,69 @@ class AIService:
     
     async def _pyttsx3_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
         """使用pyttsx3进行本地语音合成（无需网络）"""
-        try:
-            import pyttsx3
-            
-            # 初始化引擎
-            engine = pyttsx3.init()
-            
-            # 设置语音属性
-            if language == "zh":
-                # 尝试设置中文语音（如果系统支持）
-                voices = engine.getProperty('voices')
-                for voice in voices:
-                    if 'chinese' in voice.name.lower() or 'zh' in voice.id.lower():
-                        engine.setProperty('voice', voice.id)
-                        break
-            
-            # 保存到临时文件
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
-                tmp_path = tmp.name
-            
-            # 保存语音到文件
-            engine.save_to_file(text, tmp_path)
-            engine.runAndWait()
-            
-            # 读取文件内容
-            with open(tmp_path, 'rb') as f:
-                audio_data = f.read()
-            
-            # 清理临时文件
+        for attempt in range(max_retries):
             try:
-                os.unlink(tmp_path)
-            except:
-                pass
-            
-            if len(audio_data) > 100:
-                logger.info("pyttsx3 TTS成功")
-                return audio_data
-            else:
-                logger.warning("pyttsx3生成空音频，回退到gTTS")
+                import pyttsx3
+                # 初始化引擎
+                engine = pyttsx3.init()
+             
+                # 设置语音属性
+                if language == "zh":
+                    # 设置中文语音 - 以婷婷为例
+                    engine.setProperty('voice', 'com.apple.voice.compact.zh-CN.Tingting')
+                elif language == "en":
+                    # 设置英文语音 - 以Samantha为例
+                    engine.setProperty('voice', 'com.apple.voice.compact.en-US.Samantha')
+                
+                # 设置语速和音量
+                engine.setProperty('rate', 180)  # 适中语速
+                engine.setProperty('volume', 0.9)  # 较高音量
+                
+                # 保存到临时文件 - 使用MP3格式
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                # 保存语音到文件
+                engine.save_to_file(text, tmp_path)
+                engine.runAndWait()
+                
+                # 读取文件内容
+                with open(tmp_path, 'rb') as f:
+                    audio_data = f.read()
+                
+                # 清理临时文件
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
+                
+                if len(audio_data) > 100:
+                    logger.info(f"pyttsx3 TTS成功 (尝试 {attempt + 1})")
+                    return audio_data
+                else:
+                    logger.warning(f"pyttsx3生成空音频 (尝试 {attempt + 1})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1)  # 等待1秒后重试
+                    
+            except ImportError:
+                logger.warning("pyttsx3未安装，使用pip install pyttsx3安装")
                 return await self._gtts_tts(text, language, max_retries)
                 
-        except ImportError:
-            logger.warning("pyttsx3未安装，使用pip install pyttsx3安装")
-            return await self._gtts_tts(text, language, max_retries)
-            
-        except Exception as e:
-            logger.error(f"pyttsx3 TTS失败: {e}")
-            return await self._gtts_tts(text, language, max_retries)
+            except Exception as e:
+                logger.error(f"pyttsx3 TTS失败 (尝试 {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1)  # 等待1秒后重试
+                
+                # 清理可能的临时文件
+                try:
+                    if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                except:
+                    pass
+        
+        # 所有尝试都失败，回退到gTTS
+        logger.error("pyttsx3所有尝试都失败，回退到gTTS")
+        return await self._gtts_tts(text, language, max_retries)
     
     async def _elevenlabs_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
         """使用ElevenLabs进行语音合成（需要API密钥）"""
