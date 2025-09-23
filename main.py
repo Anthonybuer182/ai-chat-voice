@@ -421,25 +421,6 @@ class AIService:
             return await self._gtts_tts(text, language, max_retries)
     
     @staticmethod
-    async def _fallback_tts(text: str) -> bytes:
-        """备用TTS方案 - 使用简单的在线TTS服务"""
-        try:
-            # 这里可以使用其他TTS服务，如Microsoft Edge TTS的模拟
-            # 由于网络限制，这里提供一个简单的本地生成方案作为fallback
-            logger.warning("使用简易TTS fallback，建议安装edge-tts: pip install edge-tts")
-            
-            # 创建一个简单的音频占位符
-            # 在实际应用中，可以安装edge-tts: pip install edge-tts
-            # 或者使用其他本地TTS方案
-            
-            # 返回空的音频数据，前端会显示文本但无语音
-            return b""
-            
-        except Exception as e:
-            logger.error(f"Fallback TTS error: {e}")
-            return b""
-    
-    @staticmethod
     async def speech_to_text(audio_file: str) -> str:
         """将语音转换为文本"""
         try:
