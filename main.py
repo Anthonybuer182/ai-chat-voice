@@ -592,8 +592,14 @@ async def websocket_chat(websocket: WebSocket):
                         *chat_history.get_history(session_id)
                     ]
                     
-                    # 发送流式文本响应
+                    # 发送流式响应
                     full_response = ""
+                    # 先发送start状态
+                    await manager.send_json(websocket, {
+                        "type": "text_chunk",
+                        "content": "",
+                        "status": "start"
+                    })
                     async for chunk in ai_service.get_chat_response_stream(messages):
                         # 发送continue状态
                         await manager.send_json(websocket, {
