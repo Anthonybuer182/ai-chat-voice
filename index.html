@@ -1017,25 +1017,35 @@
         
         // 初始化
         function init() {
+            // 从localStorage加载保存的语言选择
+            const savedLanguage = localStorage.getItem('selectedLanguage');
+            if (savedLanguage) {
+                currentLanguage = savedLanguage;
+            }
+            
             connectTab1();
             setupVolumeControl();
             setupInputValidation();
             setupAccessibility();
             setupLanguageSelector();
-            // 初始化界面语言为中文
+            // 初始化界面语言
             updateInterfaceLanguage(currentLanguage);
         }
         
         // 设置语言选择器
         function setupLanguageSelector() {
-            // 为语言切换按钮添加ARIA标签
+            // 为语言切换按钮添加ARIA标签和更新文本
             const languageBtn = document.getElementById('languageToggle');
+            languageBtn.textContent = currentLanguage === 'zh' ? '中' : 'EN';
             languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
         }
         
         // 切换语言
         function toggleLanguage() {
             currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
+            
+            // 保存到localStorage
+            localStorage.setItem('selectedLanguage', currentLanguage);
             
             // 更新按钮文字和提示
             const languageBtn = document.getElementById('languageToggle');
@@ -1756,6 +1766,21 @@
             const options = dropdown.querySelectorAll('.custom-tts-option');
             const nativeSelect = document.getElementById('ttsEngine');
             
+            // 从localStorage加载保存的TTS选择
+            const savedTtsEngine = localStorage.getItem('selectedTtsEngine');
+            if (savedTtsEngine) {
+                // 更新原生select
+                nativeSelect.value = savedTtsEngine;
+                
+                // 更新自定义选择器显示
+                const savedOption = dropdown.querySelector(`[data-value="${savedTtsEngine}"]`);
+                if (savedOption) {
+                    select.textContent = savedOption.textContent;
+                    options.forEach(opt => opt.classList.remove('selected'));
+                    savedOption.classList.add('selected');
+                }
+            }
+            
             // 点击选择器切换下拉菜单
             select.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -1796,6 +1821,9 @@
                     // 更新原生select
                     nativeSelect.value = value;
                     
+                    // 保存到localStorage
+                    localStorage.setItem('selectedTtsEngine', value);
+                    
                     // 关闭下拉菜单
                     selector.classList.remove('active');
                     dropdown.classList.remove('active');
@@ -1824,12 +1852,13 @@
                 e.stopPropagation();
             });
             
-            // 初始化选中状态
-            const initialValue = nativeSelect.value;
+            // 初始化选中状态（如果没有保存的选择，使用默认值）
+            const initialValue = savedTtsEngine || nativeSelect.value;
             const initialOption = dropdown.querySelector(`[data-value="${initialValue}"]`);
             if (initialOption) {
                 initialOption.classList.add('selected');
                 select.textContent = initialOption.textContent;
+                nativeSelect.value = initialValue;
             }
         }
         
