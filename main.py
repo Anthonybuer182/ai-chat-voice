@@ -405,7 +405,7 @@ class AIService:
                 
                 data = {
                     "text": text,
-                    "model_id": "eleven_multilingual_v2",  # 使用多语言模型，自动处理语言检测
+                    "model_id": "eleven_v3",  # 使用多语言模型，自动处理语言检测
                     "voice_settings": {
                         "stability": 0.5,
                         "similarity_boost": 0.75,
