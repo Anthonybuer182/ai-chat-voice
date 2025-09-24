@@ -412,6 +412,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            border-radius: 18px 0px 18px 18px;
         }
         
         .message.assistant .message-content {
@@ -798,8 +799,24 @@
         
 
         
-        /* 语音消息指示器 */
-        .voice-message-indicator {
+        /* 用户语音消息指示器 */
+        .user-voice-message-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 18px 18px 0px 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 0;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+        
+        /* 助手语音消息指示器 */
+        .assistant-voice-message-indicator {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -811,6 +828,7 @@
             transition: all 0.3s ease;
             margin: 0;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            color: #212529;
         }
         
         /* 为文本消息添加轻微阴影增强层次感 */
@@ -818,28 +836,47 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
         
-        .voice-message-indicator:hover {
+        .user-voice-message-indicator:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+        
+        .assistant-voice-message-indicator:hover {
             background: #f8f9fa;
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         
-        .voice-message-indicator.playing {
+        .user-voice-message-indicator.playing,
+        .assistant-voice-message-indicator.playing {
             /* 播放时只改变图标颜色，不改变边框和背景 */
         }
         
-        .voice-message-indicator .play-btn {
+        .user-voice-message-indicator .play-btn {
+            margin-right: 8px;
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .assistant-voice-message-indicator .play-btn {
             margin-right: 8px;
             color: #667eea;
             font-size: 16px;
             transition: all 0.3s ease;
         }
         
-        .voice-message-indicator.playing .play-btn {
+        .user-voice-message-indicator.playing .play-btn {
+            color: #ff6b6b;
+        }
+        
+        .assistant-voice-message-indicator.playing .play-btn {
             color: #dc3545;
         }
         
-        .voice-message-indicator .voice-wave {
+        .user-voice-message-indicator .voice-wave,
+        .assistant-voice-message-indicator .voice-wave {
             display: flex;
             align-items: end;
             gap: 2px;
@@ -847,7 +884,17 @@
             padding: 0 3px;
         }
         
-        .voice-message-indicator .wave-bar {
+        .user-voice-message-indicator .wave-bar {
+            width: 3px;
+            min-height: 4px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 2px;
+            animation: wave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            transform-origin: bottom;
+            box-shadow: 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+        
+        .assistant-voice-message-indicator .wave-bar {
             width: 3px;
             min-height: 4px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -857,32 +904,39 @@
             box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
         }
         
-        .voice-message-indicator:not(.playing) .wave-bar {
+        .user-voice-message-indicator:not(.playing) .wave-bar,
+        .assistant-voice-message-indicator:not(.playing) .wave-bar {
             animation: none;
             opacity: 0.3;
         }
         
-        .voice-message-indicator.playing .wave-bar {
+        .user-voice-message-indicator.playing .wave-bar,
+        .assistant-voice-message-indicator.playing .wave-bar {
             animation: wave 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
         
-        .wave-bar:nth-child(1) { 
+        .user-voice-message-indicator .wave-bar:nth-child(1),
+        .assistant-voice-message-indicator .wave-bar:nth-child(1) { 
             animation-delay: 0s; 
             height: 8px;
         }
-        .wave-bar:nth-child(2) { 
+        .user-voice-message-indicator .wave-bar:nth-child(2),
+        .assistant-voice-message-indicator .wave-bar:nth-child(2) { 
             animation-delay: 0.2s; 
             height: 12px;
         }
-        .wave-bar:nth-child(3) { 
+        .user-voice-message-indicator .wave-bar:nth-child(3),
+        .assistant-voice-message-indicator .wave-bar:nth-child(3) { 
             animation-delay: 0.4s; 
             height: 16px;
         }
-        .wave-bar:nth-child(4) { 
+        .user-voice-message-indicator .wave-bar:nth-child(4),
+        .assistant-voice-message-indicator .wave-bar:nth-child(4) { 
             animation-delay: 0.6s; 
             height: 10px;
         }
-        .wave-bar:nth-child(5) { 
+        .user-voice-message-indicator .wave-bar:nth-child(5),
+        .assistant-voice-message-indicator .wave-bar:nth-child(5) { 
             animation-delay: 0.8s; 
             height: 6px;
         }
@@ -907,7 +961,12 @@
         }
         
         /* 悬停效果 */
-        .voice-message-indicator:hover .wave-bar {
+        .user-voice-message-indicator:hover .wave-bar {
+            animation-duration: 1.2s;
+            box-shadow: 0 3px 6px rgba(255, 255, 255, 0.5);
+        }
+        
+        .assistant-voice-message-indicator:hover .wave-bar {
             animation-duration: 1.2s;
             box-shadow: 0 3px 6px rgba(102, 126, 234, 0.4);
         }
@@ -1293,7 +1352,7 @@
                     // 更新语音消息的显示内容为转录文本
                     updateTranscriptionMessage('messages1', data.text, 'end');
                 } else if (data.type === 'audio') {
-                    const messageElement = createVoiceMessageElement(data.audio_data);
+                    const messageElement = createAssistantVoiceMessageElement(data.audio_data);
                     addVoiceMessage('messages1', messageElement, 'assistant');
                     // 自动播放语音消息
                     setTimeout(() => {
@@ -1339,7 +1398,7 @@
                 } else if (data.type === 'response') {
                     addMessage('messages2', data.text, 'assistant');
                 } else if (data.type === 'audio') {
-                    const messageElement = createVoiceMessageElement(data.audio_data);
+                    const messageElement = createAssistantVoiceMessageElement(data.audio_data);
                     addVoiceMessage('messages2', messageElement, 'assistant');
                     // 自动播放语音消息
                     setTimeout(() => {
@@ -1404,11 +1463,33 @@
             }
         }
         
-        // 创建语音消息元素
-        function createVoiceMessageElement(base64Audio) {
+        // 创建用户语音消息元素
+        function createUserVoiceMessageElement(base64Audio) {
             const audioId = 'audio-' + Date.now();
+            
             return `
-                <div class="voice-message-indicator" id="${audioId}" onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')">
+                <div class="user-voice-message-indicator" id="${audioId}" onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')">
+                    <div class="voice-wave">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                    </div>
+                     <div class="play-btn">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 创建助手语音消息元素
+        function createAssistantVoiceMessageElement(base64Audio) {
+            const audioId = 'audio-' + Date.now();
+            
+            return `
+                <div class="assistant-voice-message-indicator" id="${audioId}" onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')">
                     <div class="play-btn">
                         <i class="fas fa-play"></i>
                     </div>
@@ -1485,7 +1566,7 @@
                     const base64Audio = reader.result.split(',')[1];
                     
                     // 录制完成后立即显示语音气泡
-                    const voiceMessageElement = createVoiceMessageElement(base64Audio);
+                    const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
                     addVoiceMessage('messages1', voiceMessageElement, 'user');
                     updateTranscriptionMessage('messages1', 'start', 'start');
                     ws1.send(JSON.stringify({
