@@ -1469,16 +1469,15 @@
             
             return `
                 <div class="user-voice-message-indicator" id="${audioId}" onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')">
+                    <div class="play-btn">
+                        <i class="fas fa-play"></i>
+                    </div>
                     <div class="voice-wave">
                         <div class="wave-bar"></div>
                         <div class="wave-bar"></div>
                         <div class="wave-bar"></div>
                         <div class="wave-bar"></div>
                         <div class="wave-bar"></div>
-                        <div class="wave-bar"></div>
-                    </div>
-                     <div class="play-btn">
-                        <i class="fas fa-play"></i>
                     </div>
                 </div>
             `;
