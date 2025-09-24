@@ -1492,7 +1492,6 @@
                     }));
                 };
                 reader.readAsDataURL(audioBlob);
-                addMessage('messages1', '<i class="fas fa-microphone"></i> 语音消息已发送', 'user');
             }
         }
         
@@ -1609,9 +1608,8 @@
                 const lastUserMessage = userMessages[userMessages.length - 1];
                 const messageContent = lastUserMessage.querySelector('.message-content');
                 
-                // 检查是否是"语音消息已发送"的消息
-                if (messageContent && messageContent.innerHTML.includes('语音消息已发送')) {
-                    // 替换为转录文本
+                // 替换消息内容为转录文本
+                if (messageContent) {
                     messageContent.innerHTML = transcriptionText;
                 }
             }
