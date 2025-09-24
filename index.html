@@ -1483,6 +1483,11 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     const base64Audio = reader.result.split(',')[1];
+                    
+                    // 录制完成后立即显示语音气泡
+                    const voiceMessageElement = createVoiceMessageElement(base64Audio);
+                    addVoiceMessage('messages1', voiceMessageElement, 'user');
+                    
                     ws1.send(JSON.stringify({
                         type: 'audio',
                         audio_data: base64Audio,
@@ -1606,11 +1611,23 @@
             
             if (userMessages.length > 0) {
                 const lastUserMessage = userMessages[userMessages.length - 1];
-                const messageContent = lastUserMessage.querySelector('.message-content');
                 
-                // 替换消息内容为转录文本
-                if (messageContent) {
-                    messageContent.innerHTML = transcriptionText;
+                // 检查是否是语音气泡消息（包含voice-message-indicator）
+                const voiceIndicator = lastUserMessage.querySelector('.voice-message-indicator');
+                if (voiceIndicator) {
+                    // 如果是语音气泡消息，将其转换为文本消息
+                    const messageContent = document.createElement('div');
+                    messageContent.className = 'message-content';
+                    messageContent.textContent = transcriptionText;
+                    
+                    lastUserMessage.innerHTML = '';
+                    lastUserMessage.appendChild(messageContent);
+                } else {
+                    // 如果是普通文本消息，直接更新内容
+                    const messageContent = lastUserMessage.querySelector('.message-content');
+                    if (messageContent) {
+                        messageContent.textContent = transcriptionText;
+                    }
                 }
             }
         }
