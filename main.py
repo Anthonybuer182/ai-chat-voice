@@ -490,9 +490,7 @@ ai_service = AIService()
 @app.get("/")
 async def get_index():
     """返回HTML页面"""
-    # 这里应该返回上面创建的HTML文件
-    # 实际使用时，将HTML保存为单独的文件并通过FileResponse返回
-    return HTMLResponse(content=open("index.html", "r", encoding="utf-8").read())
+    return FileResponse("pages/index.html")
 
 # WebSocket端点 - 文本和语音聊天
 @app.websocket("/ws/chat")
