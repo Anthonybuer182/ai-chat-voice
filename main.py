@@ -717,6 +717,9 @@ async def websocket_voice(websocket: WebSocket):
                                     "type": "audio",
                                     "audio_data": audio_processor.audio_to_base64(audio_response)
                                 })
+                            
+                            # 发送完成信号
+                            await manager.send_json(websocket, {"type": "complete"})
                     
                     # 清空缓冲区
                     audio_buffer = audio_buffer[buffer_size:]
