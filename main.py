@@ -490,7 +490,7 @@ ai_service = AIService()
 @app.get("/")
 async def get_index():
     """返回HTML页面"""
-    return FileResponse("pages/index.html")
+    return FileResponse("index.html")
 
 # WebSocket端点 - 文本和语音聊天
 @app.websocket("/ws/chat")
