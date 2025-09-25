@@ -1017,19 +1017,9 @@
             updateInterfaceLanguage(currentLanguage);
             
             // 发送语言配置到已连接的WebSocket
-            sendLanguageConfig();
-            
-            console.log(`语言已切换到: ${currentLanguage === 'zh' ? '中文' : 'English'}`);
+
         }
         
-
-
-        // 切换TTS引擎
-        function changeTTSEngine() {
-            const ttsEngine = document.getElementById('ttsEngine').value;
-            console.log(`TTS引擎已切换到: ${ttsEngine}`);
-        }
-
 
 
         // 更新界面语言
@@ -1519,7 +1509,6 @@
                 `;
                 messagesDiv.appendChild(currentMessage);
             }else{
-                console.log('updateTranscriptionMessage', content, status);
                 const messageContent = currentMessage.querySelector('.message-content');
                 const thinkingDots = messageContent.querySelector('.thinking-dots');
                 if (content && content.trim() !== '') {
