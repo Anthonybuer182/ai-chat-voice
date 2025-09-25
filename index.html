@@ -1047,26 +1047,7 @@
             console.log(`TTS引擎已切换到: ${ttsEngine}`);
         }
 
-        // 发送TTS配置到WebSocket
-        function sendTTSConfig() {
-            const ttsEngine = document.getElementById('ttsEngine').value;
-            
-            // 发送到文本聊天WebSocket
-            if (ws1 && ws1.readyState === WebSocket.OPEN) {
-                ws1.send(JSON.stringify({
-                    type: "tts_config",
-                    tts_engine: ttsEngine
-                }));
-            }
-            
-            // 发送到实时语音WebSocket
-            if (ws2 && ws2.readyState === WebSocket.OPEN) {
-                ws2.send(JSON.stringify({
-                    type: "tts_config",
-                    tts_engine: ttsEngine
-                }));
-            }
-        }
+
 
         // 更新界面语言
         function updateInterfaceLanguage(lang) {
