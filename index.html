@@ -1769,9 +1769,6 @@
                     // 触发change事件
                     const event = new Event('change');
                     nativeSelect.dispatchEvent(event);
-                    
-                    // 调用原有的changeTTSEngine函数
-                    changeTTSEngine();
                 });
             });
             
