@@ -650,80 +650,44 @@ async def websocket_voice(websocket: WebSocket):
     buffer_duration = 2.0  # 2秒缓冲
     buffer_size = int(config.SAMPLE_RATE * buffer_duration)
     
+    # VAD状态管理
+    vad_state = "idle"  # idle, speaking, processing
+    silence_threshold = 0.005  # 静音检测阈值
+    speech_threshold = 0.015   # 语音检测阈值
+    
     try:
         while True:
             # 接收消息
             data = await websocket.receive_json()
             message_type = data.get("type")
             
-            if message_type == "audio_stream":
+            if message_type == "vad_start":
+                # VAD检测到语音开始
+                vad_state = "speaking"
+                logger.info(f"VAD: 检测到语音开始 - {session_id}")
+                
+            elif message_type == "vad_end":
+                # VAD检测到语音结束
+                vad_state = "processing"
+                logger.info(f"VAD: 检测到语音结束 - {session_id}")
+                
+                # 处理缓冲区中的音频数据
+                if len(audio_buffer) > 0:
+                    await process_audio_buffer(websocket, session_id, audio_buffer, data)
+                    audio_buffer = []  # 清空缓冲区
+                
+            elif message_type == "audio_stream":
                 # 处理音频流
                 audio_chunk = data.get("audio_data", [])
                 audio_buffer.extend(audio_chunk)
                 
-                # 当缓冲区达到指定大小时处理
-                if len(audio_buffer) >= buffer_size:
-                    # 转换为numpy数组
-                    audio_array = np.array(audio_buffer[:buffer_size], dtype=np.float32)
-                    
-                    # 检测是否有语音活动（简单的能量检测）
-                    energy = np.sqrt(np.mean(audio_array**2))
-                    if energy > 0.01:  # 阈值可调整
-                        # 转换为WAV
-                        wav_data = audio_processor.float32_to_wav(audio_array, config.SAMPLE_RATE)
-                        
-                        # 保存临时文件
-                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
-                            tmp.write(wav_data)
-                            audio_file = tmp.name
-                        
-                        # 语音识别
-                        transcribed_text = await ai_service.speech_to_text(audio_file)
-                        os.unlink(audio_file)
-                        
-                        if transcribed_text and len(transcribed_text) > 2:
-                            # 发送转录文本
-                            await manager.send_json(websocket, {
-                                "type": "transcription",
-                                "text": transcribed_text
-                            })
-                            
-                            # 添加到历史
-                            chat_history.add_message(session_id, "user", transcribed_text)
-                            
-                            # 获取AI响应
-                            language = data.get("language", "zh")
-                            messages = [
-                                {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["voice"]},
-                                *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
-                            ]
-                            
-                            response_text = await ai_service.get_chat_response(messages)
-                            
-                            # 发送响应文本
-                            await manager.send_json(websocket, {
-                                "type": "response",
-                                "text": response_text
-                            })
-                            
-                            # 添加到历史
-                            chat_history.add_message(session_id, "assistant", response_text)
-                            
-                            # 生成语音响应
-                            tts_engine = data.get("tts_engine", "gtts")
-                            audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
-                            if audio_response:
-                                await manager.send_json(websocket, {
-                                    "type": "audio",
-                                    "audio_data": audio_processor.audio_to_base64(audio_response)
-                                })
-                            
-                            # 发送完成信号
-                            await manager.send_json(websocket, {"type": "complete"})
-                    
-                    # 清空缓冲区
-                    audio_buffer = audio_buffer[buffer_size:]
-    
+                # 如果VAD状态为speaking，持续收集音频
+                if vad_state == "speaking":
+                    # 当缓冲区达到指定大小时处理
+                    if len(audio_buffer) >= buffer_size:
+                        await process_audio_buffer(websocket, session_id, audio_buffer[:buffer_size], data)
+                        audio_buffer = audio_buffer[buffer_size:]  # 保留剩余数据
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, "voice")
         chat_history.clear_history(session_id)
@@ -731,6 +695,85 @@ async def websocket_voice(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Voice websocket error: {e}")
         manager.disconnect(websocket, "voice")
+
+async def process_audio_buffer(websocket, session_id, audio_buffer, data):
+    """处理音频缓冲区"""
+    try:
+        # 转换为numpy数组
+        audio_array = np.array(audio_buffer, dtype=np.float32)
+        
+        # 检测音频能量
+        energy = np.sqrt(np.mean(audio_array**2))
+        
+        # 如果能量太低，可能是静音，跳过处理
+        if energy < 0.001:
+            logger.info(f"音频能量过低 ({energy:.6f})，跳过处理")
+            return
+            
+        logger.info(f"处理音频数据: {len(audio_buffer)} samples, 能量: {energy:.6f}")
+        
+        # 转换为WAV
+        wav_data = audio_processor.float32_to_wav(audio_array, config.SAMPLE_RATE)
+        
+        # 保存临时文件
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+            tmp.write(wav_data)
+            audio_file = tmp.name
+        
+        # 语音识别
+        transcribed_text = await ai_service.speech_to_text(audio_file)
+        os.unlink(audio_file)
+        
+        if transcribed_text and len(transcribed_text.strip()) > 1:
+            logger.info(f"语音识别结果: {transcribed_text}")
+            
+            # 发送转录文本
+            await manager.send_json(websocket, {
+                "type": "transcription",
+                "text": transcribed_text
+            })
+            
+            # 添加到历史
+            chat_history.add_message(session_id, "user", transcribed_text)
+            
+            # 获取AI响应
+            language = data.get("language", "zh")
+            messages = [
+                {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["voice"]},
+                *chat_history.get_history(session_id)[-4:]  # 只保留最近的2轮对话
+            ]
+            
+            response_text = await ai_service.get_chat_response(messages)
+            
+            # 发送响应文本
+            await manager.send_json(websocket, {
+                "type": "response",
+                "text": response_text
+            })
+            
+            # 添加到历史
+            chat_history.add_message(session_id, "assistant", response_text)
+            
+            # 生成语音响应
+            tts_engine = data.get("tts_engine", "gtts")
+            audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
+            if audio_response:
+                await manager.send_json(websocket, {
+                    "type": "audio",
+                    "audio_data": audio_processor.audio_to_base64(audio_response)
+                })
+            
+            # 发送完成信号
+            await manager.send_json(websocket, {"type": "complete"})
+        else:
+            logger.info("语音识别结果为空或太短，跳过处理")
+            
+    except Exception as e:
+        logger.error(f"处理音频缓冲区时出错: {e}")
+        await manager.send_json(websocket, {
+            "type": "error",
+            "message": "处理音频时出错"
+        })
 
 # 健康检查
 @app.get("/health")

@@ -709,6 +709,88 @@
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         }
         
+        /* 实时语音控制区域样式 */
+        .real-time-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .btn-voice-control {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            min-width: 200px;
+        }
+        
+        .btn-voice-control:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn-voice-control.active {
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .btn-voice-control.active:hover {
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+        }
+        
+        .voice-status {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .voice-status .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6c757d;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .voice-status .status-indicator i {
+            color: #28a745;
+            font-size: 12px;
+        }
+        
+        .voice-status .status-indicator.listening i {
+            color: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .voice-status .status-indicator.speaking i {
+            color: #dc3545;
+            animation: pulse 0.8s infinite;
+        }
+        
+        .voice-status .status-indicator.processing i {
+            color: #17a2b8;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         #tab2 .status-indicator {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -1223,6 +1305,14 @@
                 连接状态：未连接
             </div>
             <div class="chat-messages" id="messages2"></div>
+            
+            <!-- 实时语音状态显示 -->
+            <div class="voice-status" id="voiceStatus">
+                <span class="status-indicator listening">
+                    <i class="fas fa-circle"></i> 自动监听中...
+                </span>
+            </div>
+            
             <div class="voice-visualizer" id="visualizer">
                 <div class="voice-bar" style="height: 20px;"></div>
                 <div class="voice-bar" style="height: 35px;"></div>
@@ -1461,8 +1551,9 @@
             } else {
                 if (!ws2 || ws2.readyState !== WebSocket.OPEN) {
                     connectTab2();
-                    startRealTimeAudio();
                 }
+                // 切换到Tab2时自动启动实时语音监听
+                startRealTimeAudio();
                 if (ws1) {
                     ws1.close();
                 }
@@ -1531,28 +1622,43 @@
             ws2.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
                 
-                if (data.type === 'text_chunk') {
-                    appendStreamingMessage('messages2', data.content, data.status);
+                if (data.type === 'vad_start') {
+                    // VAD检测到语音开始
+                    updateVoiceStatus('speaking');
+                    console.log('后端VAD: 检测到语音开始');
+                } else if (data.type === 'vad_end') {
+                    // VAD检测到语音结束
+                    updateVoiceStatus('processing');
+                    console.log('后端VAD: 检测到语音结束，开始处理');
                 } else if (data.type === 'transcription') {
-                    // 更新语音消息的显示内容为转录文本
-                    updateTranscriptionMessage('messages2', data.text, 'end');
+                    // 收到转录文本
+                    updateVoiceStatus('processing');
+                    addMessage('messages2', data.text, 'user');
+                    console.log('语音识别结果:', data.text);
+                } else if (data.type === 'response') {
+                    // 收到AI响应文本
+                    addMessage('messages2', data.text, 'assistant');
+                    console.log('AI响应:', data.text);
                 } else if (data.type === 'audio') {
+                    // 收到AI语音响应
+                    updateVoiceStatus('listening');
                     const messageElement = createAssistantVoiceMessageElement(data.audio_data);
-                    // 使用当前消息ID关联助手语音消息到对应的用户消息
-                    addVoiceMessage('messages2', messageElement, 'assistant', currentMessageId);
+                    addVoiceMessage('messages2', messageElement, 'assistant');
+                    console.log('收到音频响应，开始播放');
                     // 自动播放语音消息
                     setTimeout(() => {
                         const audioId = messageElement.match(/id="([^"]+)"/)[1];
                         toggleAudioPlayback(audioId, data.audio_data);
                     }, 100);
                 } else if (data.type === 'complete') {
-                    // 收到完成信号，重置等待状态
-                    isWaitingForResponse = false;
-                    currentMessageId = null;
-                    
-                    // 启用发送按钮
-                    const sendBtn = document.querySelector('.btn-primary');
-                    sendBtn.disabled = false;
+                    // 收到完成信号
+                    updateVoiceStatus('listening');
+                    console.log('实时语音对话完成');
+                } else if (data.type === 'error') {
+                    // 收到错误信息
+                    updateVoiceStatus('error');
+                    console.error('后端错误:', data.message);
+                    showError('语音处理出错: ' + data.message);
                 }
             };
             
@@ -1740,39 +1846,175 @@
             }
         }
         
-        // 开始实时音频
-        async function startRealTimeAudio() {
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        sampleRate: 16000
-                    }
-                });
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(mediaStream);
-                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        
+        // 计算音频能量（用于VAD）
+        function calculateEnergy(audioData) {
+            let sum = 0;
+            for (let i = 0; i < audioData.length; i++) {
+                sum += audioData[i] * audioData[i];
+            }
+            return Math.sqrt(sum / audioData.length);
+        }
+        
+        // 自动启动实时语音
+        function autoStartRealTimeVoice() {
+            // 页面加载后自动启动实时语音
+            startRealTimeAudio();
+            updateStatus('status2', '实时语音已启动 - 请开始说话', true);
+        }
+        
+        // 修改startRealTimeAudio函数，移除手动控制逻辑
+        function startRealTimeAudio() {
+            if (mediaStream) {
+                console.log('实时语音已经启动');
+                return;
+            }
+            
+            console.log('开始启动实时语音监听...');
+            
+            // 更新状态为监听中
+            updateVoiceStatus('listening');
+            
+            // 获取用户媒体流
+            navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 16000,
+                    channelCount: 1
+                }
+            }).then(stream => {
+                mediaStream = stream;
                 
-                processor.onaudioprocess = (e) => {
-                    if (ws2 && ws2.readyState === WebSocket.OPEN) {
-                        const inputData = e.inputBuffer.getChannelData(0);
-                        const audioData = Array.from(inputData);
-                        ws2.send(JSON.stringify({
-                            type: 'audio_stream',
-                            audio_data: audioData,
-                            sample_rate: audioContext.sampleRate
-                        }));
-                        updateVisualizer(audioData);
+                // 创建音频上下文
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                
+                // 创建音频源
+                const source = audioContext.createMediaStreamSource(stream);
+                
+                // 创建脚本处理器节点
+                const processor = audioContext.createScriptProcessor(2048, 1, 1);
+                
+                // 初始化变量
+                let audioBuffer = new Float32Array(32000); // 2秒缓冲区
+                let bufferIndex = 0;
+                let silenceDuration = 0;
+                let isSpeaking = false;
+                let vadStartSent = false; // 防止重复发送vad_start
+                
+                // 音频处理回调
+                processor.onaudioprocess = (event) => {
+                    const inputData = event.inputBuffer.getChannelData(0);
+                    const currentTime = Date.now();
+                    
+                    // 计算音频能量
+                    const energy = calculateEnergy(inputData);
+                    
+                    // VAD检测
+                    const vadThreshold = 0.015;
+                    const isSpeech = energy > vadThreshold;
+                    
+                    // 更新可视化
+                    updateVisualizer(energy);
+                    
+                    // 语音活动检测逻辑
+                    if (isSpeech) {
+                        silenceDuration = 0;
+                        
+                        // 如果之前没有在说话，发送vad_start
+                        if (!isSpeaking) {
+                            isSpeaking = true;
+                            if (ws2 && ws2.readyState === WebSocket.OPEN && !vadStartSent) {
+                                ws2.send(JSON.stringify({
+                                    type: 'vad_start',
+                                    timestamp: currentTime
+                                }));
+                                vadStartSent = true;
+                                console.log('发送vad_start信号');
+                            }
+                        }
+                        
+                        // 将音频数据添加到缓冲区
+                        for (let i = 0; i < inputData.length; i++) {
+                            audioBuffer[bufferIndex++] = inputData[i];
+                        }
+                        
+                        // 如果缓冲区满了，发送音频数据
+                        if (bufferIndex >= audioBuffer.length) {
+                            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                                const audioData = new Int16Array(audioBuffer.length);
+                                for (let i = 0; i < audioBuffer.length; i++) {
+                                    audioData[i] = Math.max(-32768, Math.min(32767, audioBuffer[i] * 32768));
+                                }
+                                
+                                ws2.send(JSON.stringify({
+                                    type: 'audio_stream',
+                                    data: Array.from(audioData),
+                                    timestamp: currentTime
+                                }));
+                                
+                                console.log('发送音频数据，长度:', audioData.length);
+                            }
+                            
+                            // 重置缓冲区
+                            bufferIndex = 0;
+                            audioBuffer = new Float32Array(32000);
+                        }
+                    } else {
+                        silenceDuration += inputData.length / 16000; // 计算静音时长
+                        
+                        // 如果之前正在说话且静音超过1秒，发送vad_end
+                        if (isSpeaking && silenceDuration > 1.0) {
+                            isSpeaking = false;
+                            vadStartSent = false;
+                            
+                            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                                // 发送剩余的音频数据
+                                if (bufferIndex > 0) {
+                                    const audioData = new Int16Array(bufferIndex);
+                                    for (let i = 0; i < bufferIndex; i++) {
+                                        audioData[i] = Math.max(-32768, Math.min(32767, audioBuffer[i] * 32768));
+                                    }
+                                    
+                                    ws2.send(JSON.stringify({
+                                        type: 'audio_stream',
+                                        data: Array.from(audioData),
+                                        timestamp: currentTime
+                                    }));
+                                    
+                                    console.log('发送剩余音频数据，长度:', audioData.length);
+                                }
+                                
+                                ws2.send(JSON.stringify({
+                                    type: 'vad_end',
+                                    timestamp: currentTime
+                                }));
+                                console.log('发送vad_end信号');
+                            }
+                            
+                            // 重置缓冲区
+                            bufferIndex = 0;
+                            audioBuffer = new Float32Array(32000);
+                            silenceDuration = 0;
+                        }
                     }
                 };
                 
+                // 连接音频节点
                 source.connect(processor);
                 processor.connect(audioContext.destination);
-            } catch (error) {
-                console.error('Error starting real-time audio:', error);
+                
+                console.log('实时语音监听已启动');
+                
+            }).catch(error => {
+                console.error('获取麦克风权限失败:', error);
+                updateVoiceStatus('error');
                 showError('无法访问麦克风，请检查权限设置');
-            }
+            });
         }
         
         // 停止实时音频
@@ -1784,6 +2026,29 @@
             if (audioContext) {
                 audioContext.close();
                 audioContext = null;
+            }
+        }
+        
+        // 更新语音状态
+        function updateVoiceStatus(status) {
+            const voiceStatus = document.querySelector('.voice-status .status-indicator');
+            switch (status) {
+                case 'listening':
+                    voiceStatus.innerHTML = '<i class="fas fa-circle"></i> 监听中...';
+                    voiceStatus.className = 'status-indicator listening';
+                    break;
+                case 'speaking':
+                    voiceStatus.innerHTML = '<i class="fas fa-circle"></i> 检测到语音';
+                    voiceStatus.className = 'status-indicator speaking';
+                    break;
+                case 'processing':
+                    voiceStatus.innerHTML = '<i class="fas fa-circle"></i> 处理中...';
+                    voiceStatus.className = 'status-indicator processing';
+                    break;
+                case 'ready':
+                    voiceStatus.innerHTML = '<i class="fas fa-circle"></i> 准备就绪';
+                    voiceStatus.className = 'status-indicator';
+                    break;
             }
         }
         
@@ -2004,14 +2269,13 @@
         }
         
         // 更新可视化器
-        function updateVisualizer(audioData) {
+        function updateVisualizer(energy) {
             const bars = document.querySelectorAll('.voice-bar');
-            const rms = Math.sqrt(audioData.reduce((sum, value) => sum + value * value, 0) / audioData.length);
             
             bars.forEach((bar, i) => {
-                const height = Math.min(60, rms * 800 * (0.8 + Math.sin(i * 0.5) * 0.2));
+                const height = Math.min(60, energy * 800 * (0.8 + Math.sin(i * 0.5) * 0.2));
                 bar.style.height = `${height}px`;
-                bar.style.opacity = Math.max(0.3, rms * 2);
+                bar.style.opacity = Math.max(0.3, energy * 2);
             });
         }
         
