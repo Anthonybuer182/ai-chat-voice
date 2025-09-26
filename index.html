@@ -346,11 +346,16 @@
             display: none;
             height: calc(100% - 120px);
             position: relative;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .tab-content.active {
             display: flex;
             flex-direction: column;
+            opacity: 1;
+            transform: translateY(0);
         }
         
         .chat-messages {
@@ -673,31 +678,308 @@
             }
             
             /* 超窄屏幕优化 */
-            @media (max-width: 360px) {
-                .tab-content {
-                    height: calc(100% - 100px);
-                }
-                
-                .input-area {
-                    padding: 8px 10px;
-                }
-                
-                .input-field {
-                    width: calc(100% - 84px);
-                    padding: 8px 12px;
-                    font-size: 13px;
-                }
-                
-                .btn {
-                    width: 38px;
-                    height: 38px;
-                    padding: 8px;
-                }
-                
-                .btn i {
-                    font-size: 13px;
-                }
+        @media (max-width: 360px) {
+            .tab-content {
+                height: calc(100% - 100px);
             }
+            
+            .input-area {
+                padding: 8px 10px;
+            }
+            
+            .input-field {
+                width: calc(100% - 84px);
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+            
+            .btn {
+                width: 38px;
+                height: 38px;
+                padding: 8px;
+            }
+            
+            .btn i {
+                font-size: 13px;
+            }
+        }
+        
+        /* Tab2专属美化样式 */
+        #tab2 {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        
+        #tab2 .status-indicator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            padding: 12px 20px;
+            border-radius: 0;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        #tab2 .status-indicator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        #tab2 .status-indicator::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+            animation: statusShine 3s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes statusShine {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        #tab2 .status-indicator.connected {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        #tab2 .status-indicator.disconnected {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        }
+        
+        #tab2 .chat-messages {
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        #tab2 .message.assistant .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            border-radius: 18px 18px 0px 18px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        #tab2 .message.assistant .message-content::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        #tab2 .message.assistant .message-content::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+            animation: messageShine 3s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes messageShine {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        
+        #tab2 .message.user .message-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f3f4 100%);
+            border: 2px solid #e9ecef;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 18px 18px 18px 0px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #tab2 .message.user .message-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent 40%, rgba(102, 126, 234, 0.05) 50%, transparent 60%);
+            animation: userMessageShine 4s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes userMessageShine {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        
+        #tab2 .voice-visualizer {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        #tab2 .voice-bar {
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #tab2 .voice-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: barShimmer 2s infinite;
+        }
+        
+        @keyframes barShimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        #tab2 .audio-controls {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-top: 1px solid #dee2e6;
+            padding: 15px 20px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #tab2 .audio-controls::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent 40%, rgba(102, 126, 234, 0.05) 50%, transparent 60%);
+            animation: audioControlsShine 5s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes audioControlsShine {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        
+        #tab2 .audio-controls span {
+            color: #495057;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+            position: relative;
+            z-index: 1;
+        }
+        
+        #tab2 .volume-slider {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            height: 8px;
+        }
+        
+        #tab2 .volume-slider::-webkit-slider-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.5);
+            width: 20px;
+            height: 20px;
+        }
+        
+        #tab2 .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.7);
+        }
+        
+        #tab2 #volumeValue {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        /* Tab2专属动画效果 */
+        #tab2 .message {
+            animation: messageSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(30px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+        
+        #tab2 .voice-bar {
+            animation: voicePulse 1.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes voicePulse {
+            from {
+                opacity: 0.7;
+                transform: scaleY(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scaleY(1);
+            }
+        }
+        
+        /* 移动端Tab2优化 */
+        @media (max-width: 768px) {
+            #tab2 .status-indicator {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+            
+            #tab2 .audio-controls {
+                padding: 12px 15px;
+            }
+            
+            #tab2 .voice-visualizer {
+                height: 50px;
+            }
+        }
             
             .message-content {
                 max-width: 85%;
