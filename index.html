@@ -909,14 +909,7 @@
                     onSpeechStart: () => {
                         console.log("VAD: 检测到语音开始");
                         isSpeechActive = true;
-                        
-                        // 如果WebSocket连接正常，发送语音开始信号
-                        if (ws2 && ws2.readyState === WebSocket.OPEN) {
-                            ws2.send(JSON.stringify({
-                                type: 'vad_start',
-                                timestamp: Date.now()
-                            }));
-                        }
+                        updateTranscriptionMessage('messages2', '', 'start');
                     },
                     onSpeechEnd: (audio) => {
                         console.log("VAD: 检测到语音结束");
@@ -929,7 +922,8 @@
                             const reader = new FileReader();
                             reader.onload = () => {
                                 const base64Audio = reader.result.split(',')[1];
-                                
+                                const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
+                                addVoiceMessage('messages2', voiceMessageElement, 'user');
                                 // 如果WebSocket连接正常，发送音频数据
                                 if (ws2 && ws2.readyState === WebSocket.OPEN) {
                                     ws2.send(JSON.stringify({
@@ -942,14 +936,6 @@
                                 }
                             };
                             reader.readAsDataURL(audioBlob);
-                        }
-                        
-                        // 发送语音结束信号
-                        if (ws2 && ws2.readyState === WebSocket.OPEN) {
-                            ws2.send(JSON.stringify({
-                                type: 'vad_end',
-                                timestamp: Date.now()
-                            }));
                         }
                     },
                     onVADMisfire: () => {
@@ -997,7 +983,6 @@
             // 更新界面文本
             updateInterfaceLanguage(currentLanguage);
             
-            // 发送语言配置到已连接的WebSocket
 
         }
         
@@ -1253,13 +1238,8 @@
                         toggleAudioPlayback(audioId, data.audio_data);
                     }, 100);
                 } else if (data.type === 'complete') {
-                    // 收到完成信号，重置等待状态
-                    isWaitingForResponse = false;
-                    currentMessageId = null;
-                    
-                    // 启用发送按钮
-                    const sendBtn = document.querySelector('.btn-primary');
-                    sendBtn.disabled = false;
+                   // 收到完成信号可以继续实施录音了
+                   
                 }
             };
             
@@ -1428,7 +1408,7 @@
                     // 录制完成后立即显示语音气泡
                     const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
                     addVoiceMessage('messages1', voiceMessageElement, 'user');
-                    updateTranscriptionMessage('messages1', 'start', 'start');
+                    updateTranscriptionMessage('messages1', '', 'start');
                     
                     // 禁用发送按钮并设置等待状态
                     const sendBtn = document.querySelector('.btn-primary');
