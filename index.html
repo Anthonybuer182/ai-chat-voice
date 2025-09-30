@@ -104,14 +104,21 @@
         }
         
         .app-title {
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: 800;
             color: white;
             margin: 0;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            letter-spacing: 0.5px;
         }
         
-        /* 更新语言选择器样式以适应新布局 */
+        /* 右侧控制组件样式 */
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
         /* 语言选择器样式 */
         .language-selector {
             display: flex;
@@ -147,45 +154,6 @@
             color: #667eea;
             border-color: rgba(255, 255, 255, 0.8);
             box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
-        }
-        
-        .app-title {
-            font-size: 24px;
-            font-weight: 800;
-            color: white;
-            margin: 0;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-            letter-spacing: 0.5px;
-        }
-        
-        /* 右侧控制组件样式 */
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        /* 更新语言选择器样式以适应新布局 */
-        /* 语言选择器样式 */
-        .language-selector {
-            display: flex;
-            padding: 0;
-            background: none;
-            border-bottom: none;
-        }
-        
-        .language-btn:hover {
-            border-color: rgba(255, 255, 255, 0.6);
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
         }
 
         /* 自定义TTS选择器组件 */
@@ -324,20 +292,6 @@
             .custom-tts-option {
                 padding: 10px 12px;
                 font-size: 12px;
-            }
-        }
-        
-        /* 移动端优化 */
-        @media (max-width: 768px) {
-            .tts-select {
-                min-width: 100px;
-                font-size: 12px;
-                padding: 6px 32px 6px 12px;
-            }
-            
-            .tts-selector::after {
-                right: 8px;
-                font-size: 9px;
             }
         }
 
@@ -918,11 +872,8 @@
         let messageQueue = []; // 消息队列（用于处理并发消息）
         
         // Tab2 实时语音对话专用变量
-        let vadAnalyzer = null; // VAD分析器实例
         let vadThreshold = 0.03; // VAD检测阈值
         let isSpeechActive = false; // 当前是否检测到语音
-        let audioProcessor = null; // 音频处理器实例
-        let realTimeAudioBuffer = []; // 实时音频缓冲区
         const BUFFER_DURATION = 2; // 缓冲区时长（秒）
         
         // VAD Web 实例
