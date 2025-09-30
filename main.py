@@ -645,10 +645,8 @@ async def websocket_voice(websocket: WebSocket):
     session_id = f"voice_{id(websocket)}"
     await manager.connect(websocket, "voice")
     
-    # 音频缓冲区
-    audio_buffer = []
-    buffer_duration = 2.0  # 2秒缓冲
-    buffer_size = int(config.SAMPLE_RATE * buffer_duration)
+    # 音频缓冲区 - 用于存储前端VAD检测到的语音片段
+    current_audio_chunk = []
     
     try:
         while True:
@@ -656,73 +654,78 @@ async def websocket_voice(websocket: WebSocket):
             data = await websocket.receive_json()
             message_type = data.get("type")
             
-            if message_type == "audio_stream":
-                # 处理音频流
-                audio_chunk = data.get("audio_data", [])
-                audio_buffer.extend(audio_chunk)
+            if message_type == "vad_start":
+                # 前端VAD检测到语音开始
+                logger.info("VAD: 检测到语音开始")
+                current_audio_chunk = []  # 清空当前音频块
                 
-                # 当缓冲区达到指定大小时处理
-                if len(audio_buffer) >= buffer_size:
-                    # 转换为numpy数组
-                    audio_array = np.array(audio_buffer[:buffer_size], dtype=np.float32)
+            elif message_type == "audio_chunk":
+                # 前端发送的音频数据块（VAD检测到的语音片段）
+                audio_base64 = data.get("audio_data", "")
+                if audio_base64:
+                    # 解码base64音频数据
+                    audio_data = audio_processor.base64_to_audio(audio_base64)
                     
-                    # 检测是否有语音活动（简单的能量检测）
-                    energy = np.sqrt(np.mean(audio_array**2))
-                    if energy > 0.01:  # 阈值可调整
-                        # 转换为WAV
-                        wav_data = audio_processor.float32_to_wav(audio_array, config.SAMPLE_RATE)
-                        
-                        # 保存临时文件
-                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
-                            tmp.write(wav_data)
-                            audio_file = tmp.name
-                        
-                        # 语音识别
-                        transcribed_text = await ai_service.speech_to_text(audio_file)
-                        os.unlink(audio_file)
-                        
-                        if transcribed_text and len(transcribed_text) > 2:
-                            # 发送转录文本
-                            await manager.send_json(websocket, {
-                                "type": "transcription",
-                                "text": transcribed_text
-                            })
-                            
-                            # 添加到历史
-                            chat_history.add_message(session_id, "user", transcribed_text)
-                            
-                            # 获取AI响应
-                            language = data.get("language", "zh")
-                            messages = [
-                                {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["voice"]},
-                                *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
-                            ]
-                            
-                            response_text = await ai_service.get_chat_response(messages)
-                            
-                            # 发送响应文本
-                            await manager.send_json(websocket, {
-                                "type": "response",
-                                "text": response_text
-                            })
-                            
-                            # 添加到历史
-                            chat_history.add_message(session_id, "assistant", response_text)
-                            
-                            # 生成语音响应
-                            tts_engine = data.get("tts_engine", "gtts")
-                            audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
-                            if audio_response:
-                                await manager.send_json(websocket, {
-                                    "type": "audio",
-                                    "audio_data": audio_processor.audio_to_base64(audio_response)
-                                })
-                            
-                            # 发送完成信号
-                            await manager.send_json(websocket, {"type": "complete"})
+                    # 保存音频文件
+                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                        tmp.write(audio_data)
+                        audio_file = tmp.name
                     
-                    # 清空缓冲区
-                    audio_buffer = audio_buffer[buffer_size:]
+                    # 语音识别
+                    transcribed_text = await ai_service.speech_to_text(audio_file)
+                    os.unlink(audio_file)
+                    
+                    if transcribed_text and len(transcribed_text) > 2:
+                        # 发送转录文本
+                        await manager.send_json(websocket, {
+                            "type": "transcription",
+                            "text": transcribed_text
+                        })
+                        
+                        # 添加到历史
+                        chat_history.add_message(session_id, "user", transcribed_text)
+                        
+                        # 获取AI响应
+                        language = data.get("language", "zh")
+                        messages = [
+                            {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["voice"]},
+                            *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
+                        ]
+                        
+                        response_text = await ai_service.get_chat_response(messages)
+                        
+                        # 发送响应文本
+                        await manager.send_json(websocket, {
+                            "type": "response",
+                            "text": response_text
+                        })
+                        
+                        # 添加到历史
+                        chat_history.add_message(session_id, "assistant", response_text)
+                        
+                        # 生成语音响应
+                        tts_engine = data.get("tts_engine", "gtts")
+                        audio_response = await ai_service.text_to_speech_with_engine(response_text, tts_engine, language)
+                        if audio_response:
+                            await manager.send_json(websocket, {
+                                "type": "audio",
+                                "audio_data": audio_processor.audio_to_base64(audio_response)
+                            })
+                        
+                        # 发送完成信号
+                        await manager.send_json(websocket, {"type": "complete"})
+                    else:
+                        # 如果没有识别到有效文本，发送空响应
+                        await manager.send_json(websocket, {
+                            "type": "response",
+                            "text": ""
+                        })
+                        await manager.send_json(websocket, {"type": "complete"})
+            
+            elif message_type == "vad_end":
+                # 前端VAD检测到语音结束
+                logger.info("VAD: 检测到语音结束")
+                current_audio_chunk = []  # 清空当前音频块
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, "voice")

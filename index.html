@@ -1129,6 +1129,10 @@
         </div>
     </div>
 
+    <!-- ONNX Runtime Web 和 VAD Web 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/bundle.min.js"></script>
+    
     <script>
         let ws1 = null;
         let ws2 = null;
@@ -1155,6 +1159,10 @@
         let audioProcessor = null; // 音频处理器实例
         let realTimeAudioBuffer = []; // 实时音频缓冲区
         const BUFFER_DURATION = 2; // 缓冲区时长（秒）
+        
+        // VAD Web 实例
+        let myvad = null; // VAD Web 实例
+        let isVADInitialized = false; // VAD是否已初始化
         
         // 初始化
         function init() {
@@ -1186,6 +1194,13 @@
                 
                 // 保存到localStorage
                 localStorage.setItem('vadThreshold', vadThreshold.toString());
+                
+                // 如果VAD已初始化，更新VAD参数
+                if (myvad) {
+                    myvad.pause();
+                    myvad = null;
+                    setTimeout(() => initializeVAD(), 100);
+                }
             });
             
             // 从localStorage加载保存的VAD阈值
@@ -1256,6 +1271,90 @@
             // 更新阈值
             updateThreshold(newThreshold) {
                 this.threshold = newThreshold;
+            }
+        }
+        
+        // 初始化VAD Web库
+        async function initializeVAD() {
+            try {
+                if (myvad) {
+                    myvad.pause();
+                    myvad = null;
+                }
+                
+                // 创建VAD实例
+                myvad = await vad.MicVAD.new({
+                    onSpeechStart: () => {
+                        console.log("VAD: 检测到语音开始");
+                        isSpeechActive = true;
+                        updateVADIndicator({ isSpeech: true, rms: 0.5 });
+                        updateAudioMetrics({ isSpeech: true, rms: 0.5 });
+                        
+                        // 如果WebSocket连接正常，发送语音开始信号
+                        if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                            ws2.send(JSON.stringify({
+                                type: 'vad_start',
+                                timestamp: Date.now()
+                            }));
+                        }
+                    },
+                    onSpeechEnd: (audio) => {
+                        console.log("VAD: 检测到语音结束");
+                        isSpeechActive = false;
+                        updateVADIndicator({ isSpeech: false, rms: 0.1 });
+                        updateAudioMetrics({ isSpeech: false, rms: 0.1 });
+                        
+                        // 处理录制的音频数据
+                        if (audio && audio.length > 0) {
+                            // 将Float32Array转换为Base64
+                            const audioBlob = new Blob([audio], { type: 'audio/wav' });
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                const base64Audio = reader.result.split(',')[1];
+                                
+                                // 如果WebSocket连接正常，发送音频数据
+                                if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                                    ws2.send(JSON.stringify({
+                                        type: 'audio_chunk',
+                                        audio_data: base64Audio,
+                                        sample_rate: 16000,
+                                        duration: audio.length / 16000,
+                                        language: currentLanguage
+                                    }));
+                                }
+                            };
+                            reader.readAsDataURL(audioBlob);
+                        }
+                        
+                        // 发送语音结束信号
+                        if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                            ws2.send(JSON.stringify({
+                                type: 'vad_end',
+                                timestamp: Date.now()
+                            }));
+                        }
+                    },
+                    onVADMisfire: () => {
+                        console.log("VAD: 误检测");
+                        updateVADIndicator({ isSpeech: false, rms: 0.1 });
+                        updateAudioMetrics({ isSpeech: false, rms: 0.1 });
+                    },
+                    positiveSpeechThreshold: vadThreshold,
+                    negativeSpeechThreshold: Math.max(0.01, vadThreshold - 0.05),
+                    minSpeechFrames: 8,
+                    preSpeechPadFrames: 8,
+                    redemptionFrames: 8,
+                    onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
+                    baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/"
+                });
+                
+                isVADInitialized = true;
+                console.log("VAD Web库初始化成功");
+                
+            } catch (error) {
+                console.error("VAD Web库初始化失败:", error);
+                showError("VAD初始化失败: " + error.message);
+                isVADInitialized = false;
             }
         }
         
@@ -1433,18 +1532,28 @@
             });
             
             if (tabIndex === 0) {
+                // 切换到Tab 1：停止VAD检测
+                if (myvad) {
+                    stopRealTimeAudio();
+                }
+                
                 if (!ws1 || ws1.readyState !== WebSocket.OPEN) {
                     connectTab1();
                 }
                 if (ws2) {
                     ws2.close();
-                    stopRealTimeAudio();
                 }
             } else {
+                // 切换到Tab 2：启动VAD检测
                 if (!ws2 || ws2.readyState !== WebSocket.OPEN) {
                     connectTab2();
-                    startRealTimeAudio();
                 }
+                
+                // 延迟启动VAD检测，确保WebSocket连接已建立
+                setTimeout(() => {
+                    startRealTimeAudio();
+                }, 500);
+                
                 if (ws1) {
                     ws1.close();
                 }
@@ -1722,69 +1831,27 @@
             }
         }
         
-        // 开始实时音频（Tab2专用优化版本）
+        // 开始实时音频（Tab2专用优化版本）- 使用VAD Web库
         async function startRealTimeAudio() {
             try {
-                // 获取音质设置
-                const audioQuality = document.getElementById('audioQuality');
-                const sampleRate = parseInt(audioQuality.value);
+                // 初始化VAD Web库
+                await initializeVAD();
                 
-                mediaStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        sampleRate: sampleRate,
-                        channelCount: 1,
-                        autoGainControl: true
-                    }
-                });
+                if (!isVADInitialized) {
+                    throw new Error("VAD初始化失败");
+                }
                 
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({
-                    sampleRate: sampleRate
-                });
-                
-                // 初始化VAD分析器
-                vadAnalyzer = new VADAnalyzer(vadThreshold);
-                
-                const source = audioContext.createMediaStreamSource(mediaStream);
-                const processor = audioContext.createScriptProcessor(2048, 1, 1); // 减小缓冲区大小以提高响应速度
-                
-                processor.onaudioprocess = (e) => {
-                    const inputData = e.inputBuffer.getChannelData(0);
-                    const audioData = Array.from(inputData);
-                    
-                    // VAD语音活动检测
-                    const vadResult = vadAnalyzer.detectSpeech(audioData);
-                    
-                    // 更新UI显示
-                    updateVADIndicator(vadResult);
-                    updateAudioMetrics(vadResult);
-                    updateVisualizer(audioData);
-                    
-                    // 管理音频缓冲区
-                    manageAudioBuffer(audioData, vadResult);
-                    
-                    // 如果检测到语音活动且WebSocket连接正常，发送音频数据
-                    if (vadResult.isSpeech && ws2 && ws2.readyState === WebSocket.OPEN) {
-                        ws2.send(JSON.stringify({
-                            type: 'audio_stream',
-                            audio_data: audioData,
-                            sample_rate: audioContext.sampleRate,
-                            vad_status: vadResult.isSpeech,
-                            rms_level: vadResult.rms
-                        }));
-                    }
-                };
-                
-                source.connect(processor);
-                processor.connect(audioContext.destination);
+                // 启动VAD检测
+                myvad.start();
                 
                 // 更新状态显示
-                updateStatus('status2', `已连接 - 实时语音已启动 (${sampleRate/1000}kHz)`, true);
+                updateStatus('status2', '已连接 - 实时语音已启动 (使用VAD Web库)', true);
+                
+                console.log("实时语音对话已启动，使用VAD Web库进行语音活动检测");
                 
             } catch (error) {
                 console.error('Error starting real-time audio:', error);
-                showError('无法访问麦克风，请检查权限设置');
+                showError('无法启动实时语音: ' + error.message);
             }
         }
         
@@ -1841,6 +1908,13 @@
         
         // 停止实时音频
         function stopRealTimeAudio() {
+            // 停止VAD检测
+            if (myvad) {
+                myvad.pause();
+                console.log("VAD检测已停止");
+            }
+            
+            // 清理旧的音频资源
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
                 mediaStream = null;
@@ -1849,6 +1923,13 @@
                 audioContext.close();
                 audioContext = null;
             }
+            
+            // 重置VAD状态
+            isSpeechActive = false;
+            updateVADIndicator({ isSpeech: false, rms: 0.1 });
+            updateAudioMetrics({ isSpeech: false, rms: 0.1 });
+            
+            console.log("实时语音对话已停止");
         }
         
         // 播放音频
