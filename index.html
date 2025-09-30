@@ -1153,12 +1153,8 @@
         let messageQueue = []; // 消息队列（用于处理并发消息）
         
         // Tab2 实时语音对话专用变量
-        let vadAnalyzer = null; // VAD分析器实例
         let vadThreshold = 0.03; // VAD检测阈值
         let isSpeechActive = false; // 当前是否检测到语音
-        let audioProcessor = null; // 音频处理器实例
-        let realTimeAudioBuffer = []; // 实时音频缓冲区
-        const BUFFER_DURATION = 2; // 缓冲区时长（秒）
         
         // VAD Web 实例
         let myvad = null; // VAD Web 实例
@@ -1222,57 +1218,7 @@
             });
         }
         
-        // VAD分析器类
-        class VADAnalyzer {
-            constructor(threshold = 0.03) {
-                this.threshold = threshold;
-                this.speechStartTime = null;
-                this.silenceDuration = 0;
-                this.isSpeech = false;
-            }
-            
-            // 计算音频数据的RMS能量
-            calculateRMS(audioData) {
-                let sum = 0;
-                for (let i = 0; i < audioData.length; i++) {
-                    sum += audioData[i] * audioData[i];
-                }
-                return Math.sqrt(sum / audioData.length);
-            }
-            
-            // 检测语音活动
-            detectSpeech(audioData) {
-                const rms = this.calculateRMS(audioData);
-                const currentTime = Date.now();
-                
-                if (rms > this.threshold) {
-                    // 检测到语音
-                    if (!this.isSpeech) {
-                        this.speechStartTime = currentTime;
-                        this.isSpeech = true;
-                        this.silenceDuration = 0;
-                    }
-                    return { isSpeech: true, rms: rms, duration: currentTime - this.speechStartTime };
-                } else {
-                    // 静音
-                    if (this.isSpeech) {
-                        this.silenceDuration += 16; // 假设16ms的帧间隔
-                        
-                        // 如果静音超过500ms，认为语音结束
-                        if (this.silenceDuration > 500) {
-                            this.isSpeech = false;
-                            this.speechStartTime = null;
-                        }
-                    }
-                    return { isSpeech: this.isSpeech, rms: rms, duration: this.isSpeech ? currentTime - this.speechStartTime : 0 };
-                }
-            }
-            
-            // 更新阈值
-            updateThreshold(newThreshold) {
-                this.threshold = newThreshold;
-            }
-        }
+
         
         // 初始化VAD Web库
         async function initializeVAD() {
@@ -1319,7 +1265,8 @@
                                         audio_data: base64Audio,
                                         sample_rate: 16000,
                                         duration: audio.length / 16000,
-                                        language: currentLanguage
+                                        language: currentLanguage,
+                                        tts_engine: document.getElementById('ttsEngine').value
                                     }));
                                 }
                             };
@@ -1886,25 +1833,7 @@
             }
         }
         
-        // 管理音频缓冲区
-        function manageAudioBuffer(audioData, vadResult) {
-            // 如果检测到语音，将数据添加到缓冲区
-            if (vadResult.isSpeech) {
-                realTimeAudioBuffer.push(...audioData);
-                
-                // 计算缓冲区时长（秒）
-                const bufferDuration = realTimeAudioBuffer.length / audioContext.sampleRate;
-                
-                // 如果缓冲区超过设定时长，移除最早的数据
-                if (bufferDuration > BUFFER_DURATION) {
-                    const samplesToRemove = Math.floor((bufferDuration - BUFFER_DURATION) * audioContext.sampleRate);
-                    realTimeAudioBuffer = realTimeAudioBuffer.slice(samplesToRemove);
-                }
-            } else if (realTimeAudioBuffer.length > 0) {
-                // 语音结束，清空缓冲区
-                realTimeAudioBuffer = [];
-            }
-        }
+
         
         // 停止实时音频
         function stopRealTimeAudio() {
@@ -2148,47 +2077,7 @@
             }
         }
         
-        // 更新可视化器
-        function updateVisualizer(audioData) {
-            const visualizer = document.getElementById('visualizer');
-            if (!visualizer) return;
-            
-            const bars = visualizer.querySelectorAll('.voice-bar');
-            if (bars.length === 0) return;
-            
-            // 计算音频数据的RMS值
-            let sum = 0;
-            for (let i = 0; i < audioData.length; i++) {
-                sum += audioData[i] * audioData[i];
-            }
-            const rms = Math.sqrt(sum / audioData.length);
-            
-            // 根据RMS值更新条形高度，使用更平滑的动画
-            const maxHeight = 50; // 最大高度
-            const height = Math.min(rms * 1200, maxHeight); // 调整灵敏度
-            
-            bars.forEach((bar, index) => {
-                // 为每个条形创建不同的高度变化，使用更自然的波形
-                const phase = (index / bars.length) * Math.PI * 2;
-                const time = Date.now() / 180; // 更慢的动画速度
-                const variation = Math.sin(time + phase) * 0.4 + 0.6; // 更平滑的变化
-                const barHeight = height * variation;
-                
-                // 添加平滑过渡
-                bar.style.transition = 'height 0.08s ease-out';
-                bar.style.height = Math.max(barHeight, 3) + 'px'; // 最小高度3px
-                
-                // 根据音量动态调整颜色
-                const intensity = barHeight / maxHeight;
-                if (intensity > 0.7) {
-                    bar.style.background = 'linear-gradient(to top, #FF6B6B, #FF8E53)';
-                } else if (intensity > 0.4) {
-                    bar.style.background = 'linear-gradient(to top, #4CAF50, #8BC34A)';
-                } else {
-                    bar.style.background = 'linear-gradient(to top, #2196F3, #03A9F4)';
-                }
-            });
-        }
+
         
         // 设置音量控制
         function setupVolumeControl() {
