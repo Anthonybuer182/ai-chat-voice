@@ -1287,8 +1287,6 @@
                     onSpeechStart: () => {
                         console.log("VAD: 检测到语音开始");
                         isSpeechActive = true;
-                        updateVADIndicator({ isSpeech: true, rms: 0.5 });
-                        updateAudioMetrics({ isSpeech: true, rms: 0.5 });
                         
                         // 如果WebSocket连接正常，发送语音开始信号
                         if (ws2 && ws2.readyState === WebSocket.OPEN) {
@@ -1301,8 +1299,6 @@
                     onSpeechEnd: (audio) => {
                         console.log("VAD: 检测到语音结束");
                         isSpeechActive = false;
-                        updateVADIndicator({ isSpeech: false, rms: 0.1 });
-                        updateAudioMetrics({ isSpeech: false, rms: 0.1 });
                         
                         // 处理录制的音频数据
                         if (audio && audio.length > 0) {
@@ -1336,8 +1332,6 @@
                     },
                     onVADMisfire: () => {
                         console.log("VAD: 误检测");
-                        updateVADIndicator({ isSpeech: false, rms: 0.1 });
-                        updateAudioMetrics({ isSpeech: false, rms: 0.1 });
                     },
                     positiveSpeechThreshold: vadThreshold,
                     negativeSpeechThreshold: Math.max(0.01, vadThreshold - 0.05),
@@ -1855,57 +1849,6 @@
             }
         }
         
-        // 更新VAD指示器
-        function updateVADIndicator(vadResult) {
-            const vadDot = document.querySelector('.vad-dot');
-            const vadText = document.querySelector('.vad-text');
-            
-            if (vadDot) {
-                if (vadResult.isSpeech) {
-                    vadDot.classList.add('active');
-                    vadText.textContent = `检测到语音 (${(vadResult.rms * 100).toFixed(1)}%)`;
-                } else {
-                    vadDot.classList.remove('active');
-                    vadText.textContent = '检测中...';
-                }
-            }
-        }
-        
-        // 更新音频指标
-        function updateAudioMetrics(vadResult) {
-            const volumeLevel = document.getElementById('volumeLevel');
-            const vadStatus = document.getElementById('vadStatus');
-            
-            if (volumeLevel) {
-                volumeLevel.textContent = `${(vadResult.rms * 100).toFixed(1)}%`;
-            }
-            
-            if (vadStatus) {
-                vadStatus.textContent = vadResult.isSpeech ? '检测中' : '静音';
-                vadStatus.style.color = vadResult.isSpeech ? '#4CAF50' : '#ff6b6b';
-            }
-        }
-        
-        // 管理音频缓冲区
-        function manageAudioBuffer(audioData, vadResult) {
-            // 如果检测到语音，将数据添加到缓冲区
-            if (vadResult.isSpeech) {
-                realTimeAudioBuffer.push(...audioData);
-                
-                // 计算缓冲区时长（秒）
-                const bufferDuration = realTimeAudioBuffer.length / audioContext.sampleRate;
-                
-                // 如果缓冲区超过设定时长，移除最早的数据
-                if (bufferDuration > BUFFER_DURATION) {
-                    const samplesToRemove = Math.floor((bufferDuration - BUFFER_DURATION) * audioContext.sampleRate);
-                    realTimeAudioBuffer = realTimeAudioBuffer.slice(samplesToRemove);
-                }
-            } else if (realTimeAudioBuffer.length > 0) {
-                // 语音结束，清空缓冲区
-                realTimeAudioBuffer = [];
-            }
-        }
-        
         // 停止实时音频
         function stopRealTimeAudio() {
             // 停止VAD检测
@@ -1926,8 +1869,6 @@
             
             // 重置VAD状态
             isSpeechActive = false;
-            updateVADIndicator({ isSpeech: false, rms: 0.1 });
-            updateAudioMetrics({ isSpeech: false, rms: 0.1 });
             
             console.log("实时语音对话已停止");
         }
