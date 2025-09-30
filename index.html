@@ -909,7 +909,6 @@
                     onSpeechStart: () => {
                         console.log("VAD: 检测到语音开始");
                         isSpeechActive = true;
-                        updateTranscriptionMessage('messages2', '', 'start');
                     },
                     onSpeechEnd: (audio) => {
                         console.log("VAD: 检测到语音结束");
@@ -924,6 +923,7 @@
                                 const base64Audio = reader.result.split(',')[1];
                                 const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
                                 addVoiceMessage('messages2', voiceMessageElement, 'user');
+                                updateTranscriptionMessage('messages2', '', 'start');
                                 // 如果WebSocket连接正常，发送音频数据
                                 if (ws2 && ws2.readyState === WebSocket.OPEN) {
                                     ws2.send(JSON.stringify({
