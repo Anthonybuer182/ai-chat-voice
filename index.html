@@ -524,49 +524,6 @@
             color: #dc3545;
         }
         
-        .voice-visualizer {
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            padding: 10px;
-            background: #f8f9fa;
-        }
-        
-        .voice-bar {
-            width: 4px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
-            transition: height 0.1s ease;
-        }
-        
-        .audio-controls {
-            display: flex;
-            gap: 10px;
-            padding: 10px 20px;
-            background: #f8f9fa;
-            align-items: center;
-        }
-        
-        .volume-slider {
-            flex: 1;
-            height: 6px;
-            border-radius: 3px;
-            background: #e9ecef;
-            outline: none;
-            -webkit-appearance: none;
-        }
-        
-        .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-        }
-        
         /* 中等屏幕优化 - 针对692px左右宽度 */
         @media (max-width: 768px) and (min-width: 481px) {
             .tab-content {
@@ -933,65 +890,6 @@
                 连接状态：未连接
             </div>
             <div class="chat-messages" id="messages2"></div>
-            
-            <!-- 优化的语音可视化器容器 -->
-            <div class="voice-visualizer-container">
-                <div class="voice-visualizer" id="visualizer">
-                    <div class="voice-bar" style="height: 20px;"></div>
-                    <div class="voice-bar" style="height: 35px;"></div>
-                    <div class="voice-bar" style="height: 25px;"></div>
-                    <div class="voice-bar" style="height: 40px;"></div>
-                    <div class="voice-bar" style="height: 30px;"></div>
-                    <div class="voice-bar" style="height: 45px;"></div>
-                    <div class="voice-bar" style="height: 35px;"></div>
-                    <div class="voice-bar" style="height: 25px;"></div>
-                    <div class="voice-bar" style="height: 30px;"></div>
-                    <div class="voice-bar" style="height: 20px;"></div>
-                </div>
-                
-                <!-- VAD指示器 -->
-                <div class="vad-indicator" id="vadIndicator">
-                    <div class="vad-dot"></div>
-                    <span class="vad-text">检测中...</span>
-                </div>
-                
-                <!-- 音频指标显示 -->
-                <div class="audio-metrics" id="audioMetrics">
-                    <div class="metric">
-                        <span class="metric-label">音量:</span>
-                        <span class="metric-value" id="volumeLevel">-</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-label">VAD:</span>
-                        <span class="metric-value" id="vadStatus">-</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 实时音频控制区域 -->
-            <div class="real-time-controls">
-                <div class="control-group">
-                    <label for="vadSensitivity">VAD灵敏度:</label>
-                    <input type="range" class="control-slider" id="vadSensitivity" 
-                           min="0.01" max="0.1" step="0.01" value="0.03">
-                    <span id="vadValue">0.03</span>
-                </div>
-                
-                <div class="control-group">
-                    <label for="audioQuality">音质:</label>
-                    <select class="control-select" id="audioQuality">
-                        <option value="16000">标准 (16kHz)</option>
-                        <option value="24000">良好 (24kHz)</option>
-                        <option value="48000">最佳 (48kHz)</option>
-                    </select>
-                </div>
-                
-                <div class="audio-controls">
-                    <span><i class="fas fa-volume-up"></i> 音量：</span>
-                    <input type="range" class="volume-slider" id="volumeSlider" 
-                           min="0" max="100" value="50">
-                    <span id="volumeValue">50%</span>
-                </div>
             </div>
         </div>
     </div>
@@ -1646,26 +1544,6 @@
             console.log("实时语音对话已停止");
         }
         
-        // 播放音频
-        function playAudio(base64Audio) {
-            try {
-                // 检查音频数据是否为空
-                if (!base64Audio || base64Audio.trim() === '') {
-                    console.warn('空的音频数据，跳过播放');
-                    return;
-                }
-                
-                const audio = new Audio('data:audio/mp3;base64,' + base64Audio);
-                const volume = document.getElementById('volumeSlider').value / 100;
-                audio.volume = volume;
-                audio.play().catch(error => {
-                    console.error('Error playing audio:', error);
-                });
-            } catch (error) {
-                console.error('Error creating audio:', error);
-            }
-        }
-        
         // 添加消息（带时间戳）
         function addMessage(containerId, content, sender, messageId = null) {
             const messagesDiv = document.getElementById(containerId);
@@ -2029,9 +1907,6 @@
             try {
                 // 创建音频对象
                 currentAudio = new Audio('data:audio/mp3;base64,' + base64Audio);
-                const volume = document.getElementById('volumeSlider').value / 100;
-                currentAudio.volume = volume;
-                
                 // 更新UI状态
                 audioElement.classList.add('playing');
                 const playIcon = audioElement.querySelector('.play-btn i');
