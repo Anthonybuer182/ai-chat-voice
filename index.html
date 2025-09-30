@@ -1302,8 +1302,10 @@
             
             // 更新元素文本
             document.getElementById('appTitle').textContent = elements['app-title'];
-            document.querySelector('.tab:nth-child(1)').innerHTML = elements['tab1-label'];
-            document.querySelector('.tab:nth-child(2)').innerHTML = elements['tab2-label'];
+            const tab1 = document.querySelector('.tab:nth-child(1)');
+            const tab2 = document.querySelector('.tab:nth-child(2)');
+            if (tab1) tab1.innerHTML = elements['tab1-label'];
+            if (tab2) tab2.innerHTML = elements['tab2-label'];
             document.getElementById('textInput').placeholder = elements['textInput-placeholder'];
             // 更新发送按钮文本（保留图标）
             const sendBtn = document.querySelector('.btn-primary');
@@ -1322,7 +1324,8 @@
                     '<i class="fas fa-microphone"></i> Record';
                 recordBtn.setAttribute('aria-label', lang === 'zh' ? '录音' : 'Record');
             }
-            document.querySelector('.audio-controls span:first-child').innerHTML = elements['volume-label'];
+            const volumeLabel = document.querySelector('.audio-controls span:first-child');
+            if (volumeLabel) volumeLabel.innerHTML = elements['volume-label'];
             
             // 更新状态指示器
             const status1 = document.getElementById('status1');
@@ -1790,7 +1793,7 @@
             const vadDot = document.querySelector('.vad-dot');
             const vadText = document.querySelector('.vad-text');
             
-            if (vadDot && vadText) {
+            if (vadDot) {
                 if (vadResult.isSpeech) {
                     vadDot.classList.add('active');
                     vadText.textContent = `检测到语音 (${(vadResult.rms * 100).toFixed(1)}%)`;
@@ -1891,12 +1894,11 @@
         let currentMessage = null;
         // 更新语音转文本消息
         function updateTranscriptionMessage(containerId, content, status) {
-
             const messagesDiv = document.getElementById(containerId);
             if(status === 'start') {
                 currentMessage = document.createElement('div');
                 currentMessage.className = 'message user';
-                  currentMessage.innerHTML = `
+                currentMessage.innerHTML = `
                     <div class="message-content">
                         <div class="thinking-dots">
                             <div class="thinking-dot"></div>
@@ -1906,32 +1908,31 @@
                     </div>
                 `;
                 messagesDiv.appendChild(currentMessage);
-            }else{
+            } else if (currentMessage) {
                 const messageContent = currentMessage.querySelector('.message-content');
-                const thinkingDots = messageContent.querySelector('.thinking-dots');
-                if (content && content.trim() !== '') {
-                    // 移除思考指示器
-                    if (thinkingDots && thinkingDots.parentNode) {
-                        thinkingDots.remove();
+                if (messageContent) {
+                    const thinkingDots = messageContent.querySelector('.thinking-dots');
+                    if (content && content.trim() !== '') {
+                        // 移除思考指示器
+                        if (thinkingDots && thinkingDots.parentNode) {
+                            thinkingDots.remove();
+                        }
+                        // 创建文本元素
+                        const textElement = document.createElement('span');
+                        messageContent.appendChild(textElement);
+                        textElement.textContent = content;
                     }
-                    // 创建文本元素
-                    const textElement = document.createElement('span');
-                    messageContent.appendChild(textElement);
-                    textElement.textContent = content;
                 }
             }
-          
         }
         // 添加流式消息
         let currentStreamMessage = null;
         function appendStreamingMessage(containerId, content, status) {
-
             const messagesDiv = document.getElementById(containerId);
             
             if (status === 'start') {
                 currentStreamMessage = document.createElement('div');
                 currentStreamMessage.className = 'message assistant';
-                
                 currentStreamMessage.innerHTML = `
                     <div class="message-content">
                         <div class="thinking-dots">
@@ -1946,32 +1947,34 @@
             
             if (currentStreamMessage) {
                 const messageContent = currentStreamMessage.querySelector('.message-content');
-                const thinkingDots = messageContent.querySelector('.thinking-dots');
-                
-                // 处理内容到达的逻辑
-                if (content && content.trim() !== '') {
-                    // 如果思考指示器还存在，先移除它并创建文本元素
-                    if (thinkingDots && thinkingDots.parentNode) {
-                        thinkingDots.remove();
-                        
-                        const textElement = document.createElement('span');
-                        messageContent.appendChild(textElement);
-                        textElement.textContent = content;
-                    } else {
-                        // 如果已经有文本元素，直接追加内容
-                        const textElement = messageContent.querySelector('span');
-                        if (textElement) {
-                            textElement.textContent += content;
+                if (messageContent) {
+                    const thinkingDots = messageContent.querySelector('.thinking-dots');
+                    
+                    // 处理内容到达的逻辑
+                    if (content && content.trim() !== '') {
+                        // 如果思考指示器还存在，先移除它并创建文本元素
+                        if (thinkingDots && thinkingDots.parentNode) {
+                            thinkingDots.remove();
+                            
+                            const textElement = document.createElement('span');
+                            messageContent.appendChild(textElement);
+                            textElement.textContent = content;
+                        } else {
+                            // 如果已经有文本元素，直接追加内容
+                            const textElement = messageContent.querySelector('span');
+                            if (textElement) {
+                                textElement.textContent += content;
+                            }
                         }
                     }
+                    
+                    if (status === 'end') {
+                        // 结束状态，清理
+                        currentStreamMessage = null;
+                    }
+                    
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
                 }
-                
-                if (status === 'end') {
-                    // 结束状态，清理
-                    currentStreamMessage = null;
-                }
-                
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
         }
         // 添加语音消息（语音指示器直接作为消息）
