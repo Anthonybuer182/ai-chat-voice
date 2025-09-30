@@ -524,22 +524,7 @@
             color: #dc3545;
         }
         
-        .voice-visualizer {
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            padding: 10px;
-            background: #f8f9fa;
-        }
-        
-        .voice-bar {
-            width: 4px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
-            transition: height 0.1s ease;
-        }
+
         
         .audio-controls {
             display: flex;
@@ -703,134 +688,16 @@
                 max-width: 85%;
             }
             
-            .voice-visualizer {
-                height: 50px;
-            }
+
             
             .audio-controls {
             padding: 8px 15px;
             font-size: 14px;
         }
         
-        /* Tab2 实时语音对话专用样式 */
-        .voice-visualizer-container {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            margin: 15px;
-            padding: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+
         
-        .voice-visualizer {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            height: 60px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 10px;
-            gap: 4px;
-        }
-        
-        .voice-bar {
-            flex: 1;
-            background: linear-gradient(to top, #4CAF50, #8BC34A);
-            border-radius: 2px;
-            min-height: 4px;
-            transition: height 0.1s ease;
-            animation: pulse 2s infinite;
-        }
-        
-        .vad-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
-            padding: 6px 12px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        
-        .vad-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ff6b6b;
-            transition: all 0.3s ease;
-        }
-        
-        .vad-dot.active {
-            background: #4CAF50;
-            box-shadow: 0 0 10px #4CAF50;
-        }
-        
-        .audio-metrics {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-        }
-        
-        .metric {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 15px;
-            padding: 4px 10px;
-            font-size: 11px;
-            font-weight: 500;
-        }
-        
-        .metric-label {
-            color: #666;
-        }
-        
-        .metric-value {
-            color: #333;
-            font-weight: 600;
-        }
-        
-        .real-time-controls {
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-        }
-        
-        .control-group label {
-            min-width: 80px;
-            font-weight: 500;
-            color: #495057;
-        }
-        
-        .control-slider {
-            flex: 1;
-            height: 6px;
-            border-radius: 3px;
-            background: #dee2e6;
-            outline: none;
-        }
-        
-        .control-select {
-            padding: 6px 10px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            background: white;
-            font-size: 14px;
-        }
+
         
         @keyframes pulse {
             0%, 100% { opacity: 0.7; }
@@ -1067,65 +934,9 @@
             </div>
             <div class="chat-messages" id="messages2"></div>
             
-            <!-- 优化的语音可视化器容器 -->
-            <div class="voice-visualizer-container">
-                <div class="voice-visualizer" id="visualizer">
-                    <div class="voice-bar" style="height: 20px;"></div>
-                    <div class="voice-bar" style="height: 35px;"></div>
-                    <div class="voice-bar" style="height: 25px;"></div>
-                    <div class="voice-bar" style="height: 40px;"></div>
-                    <div class="voice-bar" style="height: 30px;"></div>
-                    <div class="voice-bar" style="height: 45px;"></div>
-                    <div class="voice-bar" style="height: 35px;"></div>
-                    <div class="voice-bar" style="height: 25px;"></div>
-                    <div class="voice-bar" style="height: 30px;"></div>
-                    <div class="voice-bar" style="height: 20px;"></div>
-                </div>
-                
-                <!-- VAD指示器 -->
-                <div class="vad-indicator" id="vadIndicator">
-                    <div class="vad-dot"></div>
-                    <span class="vad-text">检测中...</span>
-                </div>
-                
-                <!-- 音频指标显示 -->
-                <div class="audio-metrics" id="audioMetrics">
-                    <div class="metric">
-                        <span class="metric-label">音量:</span>
-                        <span class="metric-value" id="volumeLevel">-</span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-label">VAD:</span>
-                        <span class="metric-value" id="vadStatus">-</span>
-                    </div>
-                </div>
-            </div>
+
             
-            <!-- 实时音频控制区域 -->
-            <div class="real-time-controls">
-                <div class="control-group">
-                    <label for="vadSensitivity">VAD灵敏度:</label>
-                    <input type="range" class="control-slider" id="vadSensitivity" 
-                           min="0.01" max="0.1" step="0.01" value="0.03">
-                    <span id="vadValue">0.03</span>
-                </div>
-                
-                <div class="control-group">
-                    <label for="audioQuality">音质:</label>
-                    <select class="control-select" id="audioQuality">
-                        <option value="16000">标准 (16kHz)</option>
-                        <option value="24000">良好 (24kHz)</option>
-                        <option value="48000">最佳 (48kHz)</option>
-                    </select>
-                </div>
-                
-                <div class="audio-controls">
-                    <span><i class="fas fa-volume-up"></i> 音量：</span>
-                    <input type="range" class="volume-slider" id="volumeSlider" 
-                           min="0" max="100" value="50">
-                    <span id="volumeValue">50%</span>
-                </div>
-            </div>
+
         </div>
     </div>
 
@@ -1173,50 +984,11 @@
             setupInputValidation();
             setupAccessibility();
             setupLanguageSelector();
-            setupRealTimeControls(); // 初始化实时音频控制
             // 初始化界面语言
             updateInterfaceLanguage(currentLanguage);
         }
         
-        // 初始化实时音频控制
-        function setupRealTimeControls() {
-            // VAD灵敏度控制
-            const vadSensitivity = document.getElementById('vadSensitivity');
-            const vadValue = document.getElementById('vadValue');
-            
-            vadSensitivity.addEventListener('input', () => {
-                vadThreshold = parseFloat(vadSensitivity.value);
-                vadValue.textContent = vadThreshold.toFixed(2);
-                
-                // 保存到localStorage
-                localStorage.setItem('vadThreshold', vadThreshold.toString());
-                
-                // 如果VAD已初始化，更新VAD参数
-                if (myvad) {
-                    myvad.pause();
-                    myvad = null;
-                    setTimeout(() => initializeVAD(), 100);
-                }
-            });
-            
-            // 从localStorage加载保存的VAD阈值
-            const savedVadThreshold = localStorage.getItem('vadThreshold');
-            if (savedVadThreshold) {
-                vadThreshold = parseFloat(savedVadThreshold);
-                vadSensitivity.value = vadThreshold;
-                vadValue.textContent = vadThreshold.toFixed(2);
-            }
-            
-            // 音质选择器
-            const audioQuality = document.getElementById('audioQuality');
-            audioQuality.addEventListener('change', () => {
-                // 如果正在实时语音对话，重新初始化音频流
-                if (currentTab === 1 && mediaStream) {
-                    stopRealTimeAudio();
-                    setTimeout(() => startRealTimeAudio(), 100);
-                }
-            });
-        }
+
         
 
         
