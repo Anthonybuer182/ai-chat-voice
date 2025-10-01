@@ -1,12 +1,21 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-websockets==12.0
-openai==1.107.3
-gtts==2.5.4
-edge-tts==7.2.3
-faster-whisper==1.2.0
-numpy==2.2.6
-scipy==1.16.2
-python-multipart==0.0.20
-python-dotenv==1.1.1
-pyttsx3==2.99
+# Web框架和服务器
+fastapi==0.104.1           # FastAPI Web框架，用于构建API和WebSocket服务
+uvicorn[standard]==0.24.0   # ASGI服务器，用于运行FastAPI应用
+websockets==12.0           # WebSocket协议实现，支持实时双向通信
+
+# AI服务和语音处理
+openai==1.107.3            # OpenAI API客户端，用于调用GPT模型
+faster-whisper==1.2.0      # 优化的语音识别库，基于Whisper模型
+
+# 文本转语音(TTS)引擎
+gtts==2.5.4                # Google Text-to-Speech，在线TTS服务
+edge-tts==7.2.3            # Microsoft Edge TTS，在线TTS服务
+pyttsx3==2.99              # 离线TTS引擎，支持多种语音合成
+
+# 数据处理和科学计算
+numpy==2.2.6               # 数值计算库，用于音频数据处理
+scipy==1.16.2              # 科学计算库，包含信号处理功能
+
+# 文件处理和配置管理
+python-multipart==0.0.20   # 多部分表单数据处理
+python-dotenv==1.1.1       # 环境变量管理，用于配置文件

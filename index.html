@@ -1,12 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    <!-- 页面元数据配置 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#667eea">
+    
+    <!-- 图标和样式表 -->
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 页面标题 -->
     <title>AI语音聊天系统</title>
+    
+    <!-- 内联CSS样式定义 -->
     <style>
         * {
             margin: 0;
@@ -1801,50 +1808,80 @@
         
         // 页面加载完成后初始化
         window.addEventListener('load', function() {
+            console.log('页面加载完成，开始初始化应用');
             init();
             setupCustomTtsSelector();
+            console.log('应用初始化完成');
         });
         
-        // 页面关闭时清理
+        // 页面关闭时清理资源
         window.addEventListener('beforeunload', () => {
-            if (ws1) ws1.close();
-            if (ws2) ws2.close();
+            console.log('页面即将关闭，开始清理资源');
+            if (ws1) {
+                console.log('关闭聊天WebSocket连接');
+                ws1.close();
+            }
+            if (ws2) {
+                console.log('关闭语音WebSocket连接');
+                ws2.close();
+            }
             stopRealTimeAudio();
+            console.log('资源清理完成');
         });
         
         // 音频播放控制
-        let currentAudio = null;
-        let currentAudioElement = null;
+        let currentAudio = null;        // 当前播放的音频对象
+        let currentAudioElement = null; // 当前播放的音频DOM元素
         
+        /**
+         * 切换音频播放状态
+         * @param {string} audioId - 音频元素的ID
+         * @param {string} base64Audio - Base64编码的音频数据
+         */
         function toggleAudioPlayback(audioId, base64Audio) {
+            console.log(`切换音频播放状态，音频ID: ${audioId}`);
             const audioElement = document.getElementById(audioId);
             
             // 如果正在播放当前音频，则停止
             if (currentAudioElement === audioElement && currentAudio) {
+                console.log('当前音频正在播放，执行停止操作');
                 stopAudioPlayback();
                 return;
             }
             
             // 如果正在播放其他音频，先停止
             if (currentAudio) {
+                console.log('检测到其他音频正在播放，先停止当前音频');
                 stopAudioPlayback();
             }
             
             // 开始播放新音频
+            console.log('开始播放新音频');
             startAudioPlayback(audioElement, base64Audio);
         }
         
+        /**
+         * 开始音频播放
+         * @param {HTMLElement} audioElement - 音频DOM元素
+         * @param {string} base64Audio - Base64编码的音频数据
+         */
         function startAudioPlayback(audioElement, base64Audio) {
+            console.log('开始音频播放流程');
             try {
                 // 创建音频对象
+                console.log('创建音频对象');
                 currentAudio = new Audio('data:audio/mp3;base64,' + base64Audio);
+                
                 // 更新UI状态
+                console.log('更新UI播放状态');
                 audioElement.classList.add('playing');
                 const playIcon = audioElement.querySelector('.play-btn i');
                 playIcon.className = 'fas fa-stop';
                 
-                // 设置音频事件
+                // 设置音频事件监听器
+                console.log('设置音频事件监听器');
                 currentAudio.onended = () => {
+                    console.log('音频播放完成');
                     stopAudioPlayback();
                 };
                 
@@ -1853,13 +1890,16 @@
                     stopAudioPlayback();
                 };
                 
-                // 开始播放
+                // 开始播放音频
+                console.log('调用音频播放API');
                 currentAudio.play().catch(error => {
                     console.error('播放失败:', error);
                     stopAudioPlayback();
                 });
                 
+                // 更新当前播放状态
                 currentAudioElement = audioElement;
+                console.log('音频播放已启动');
                 
             } catch (error) {
                 console.error('创建音频失败:', error);
@@ -1867,29 +1907,48 @@
             }
         }
         
+        /**
+         * 停止音频播放并重置状态
+         */
         function stopAudioPlayback() {
+            console.log('停止音频播放');
+            
+            // 停止音频播放器
             if (currentAudio) {
+                console.log('暂停音频播放器');
                 currentAudio.pause();
                 currentAudio.currentTime = 0;
                 currentAudio = null;
+                console.log('音频播放器已停止');
             }
             
+            // 重置UI状态
             if (currentAudioElement) {
+                console.log('重置UI播放状态');
                 currentAudioElement.classList.remove('playing');
                 const playIcon = currentAudioElement.querySelector('.play-btn i');
                 playIcon.className = 'fas fa-play';
                 currentAudioElement = null;
+                console.log('UI状态已重置');
             }
+            
+            console.log('音频播放停止完成');
         }
         
-        // 全局音频停止函数
+        /**
+         * 全局音频停止函数 - 停止所有音频播放
+         */
         function stopAllAudio() {
+            console.log('执行全局音频停止');
             stopAudioPlayback();
+            console.log('全局音频停止完成');
         }
 
-        // 添加CSS动画
+        // 动态添加CSS动画定义
+        console.log('开始添加CSS动画样式');
         const style = document.createElement('style');
         style.textContent = `
+            /* 错误消息滑入动画 - 从右侧滑入显示 */
             @keyframes slideInRight {
                 from {
                     transform: translateX(100%);
@@ -1901,6 +1960,7 @@
                 }
             }
             
+            /* 错误消息滑出动画 - 向右侧滑出隐藏 */
             @keyframes slideOutRight {
                 from {
                     transform: translateX(0);
@@ -1913,6 +1973,7 @@
             }
         `;
         document.head.appendChild(style);
+        console.log('CSS动画样式添加完成');
     </script>
 </body>
 </html>
