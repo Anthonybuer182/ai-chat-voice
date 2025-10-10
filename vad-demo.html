@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAD语音活动检测 - 优化版</title>
+    <meta name="description" content="基于@ricky0123/vad-web的语音活动检测示例，支持实时录音和音频保存">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎤</text></svg>">
+    
+    <!-- 异步加载VAD库 -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/bundle.min.js" defer></script>
+    
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        .app-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border-color);
+        }
+        
+        .card h2 {
+            color: var(--primary-color);
+            margin-bottom: 16px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--error-color);
+            color: white;
+        }
+        
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-idle {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .status-listening {
+            background: #dbeafe;
+            color: var(--primary-color);
+        }
+        
+        .status-recording {
+            background: #dcfce7;
+            color: var(--success-color);
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: var(--error-color);
+        }
+        
+        .audio-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .audio-item {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .audio-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .audio-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .audio-title {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .audio-meta {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .audio-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .audio-player {
+            width: 100%;
+            margin: 8px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+        
+        .debug-panel {
+            background: #1f2937;
+            color: #d1d5db;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 16px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <h1>🎤 VAD语音活动检测</h1>
+            <p>基于@ricky0123/vad-web的实时语音检测与录音系统</p>
+        </div>
+        
+        <!-- 系统状态卡片 -->
+        <div class="card">
+            <h2>📊 系统状态</h2>
+            <div id="vadStatus" class="status-indicator status-idle">
+                <span>🔄</span>
+                <span>正在初始化VAD库...</span>
+            </div>
+            <div id="vadInfo" style="margin-top: 12px;"></div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="card">
+            <h2>🎛️ 控制面板</h2>
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary" onclick="startVAD()" disabled>
+                    <span>▶️</span>
+                    <span>开始监听</span>
+                </button>
+                <button id="stopBtn" class="btn btn-secondary" onclick="stopVAD()" disabled>
+                    <span>⏹️</span>
+                    <span>停止监听</span>
+                </button>
+                <button id="clearBtn" class="btn btn-secondary" onclick="clearRecordings()">
+                    <span>🗑️</span>
+                    <span>清空记录</span>
+                </button>
+                <button class="btn btn-secondary" onclick="toggleConfigPanel()">
+                    <span>⚙️</span>
+                    <span>配置参数</span>
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 16px; margin-top: 16px;">
+                <div class="status-indicator" id="listeningStatus">
+                    <span>🔇</span>
+                    <span>未监听</span>
+                </div>
+                <div class="status-indicator" id="recordingStatus">
+                    <span>⚪</span>
+                    <span>未录制</span>
+                </div>
+                <div class="status-indicator" id="userSpeakingStatus">
+                    <span>🔇</span>
+                    <span>未说话</span>
+                </div>
+            </div>
+            
+            <!-- VAD配置面板 -->
+            <div id="configPanel" style="display: none; margin-top: 16px; padding: 16px; background: #f8fafc; border-radius: 8px;">
+                <h3 style="margin-bottom: 12px; color: #4b5563;">🔧 VAD参数配置</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">
+                            语音检测阈值 (0.1-0.9):
+                        </label>
+                        <input type="range" id="positiveThreshold" min="0.1" max="0.9" step="0.05" value="0.3" 
+                               style="width: 100%;" onchange="updateConfigValue('positiveThreshold', this.value)">
+                        <span id="positiveThresholdValue" style="font-size: 12px;">0.3</span>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">
+                            非语音检测阈值 (0.1-0.9):
+                        </label>
+                        <input type="range" id="negativeThreshold" min="0.1" max="0.9" step="0.05" value="0.25" 
+                               style="width: 100%;" onchange="updateConfigValue('negativeThreshold', this.value)">
+                        <span id="negativeThresholdValue" style="font-size: 12px;">0.25</span>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">
+                            最小语音时长 (ms):
+                        </label>
+                        <input type="range" id="minSpeechMs" min="100" max="2000" step="100" value="400" 
+                               style="width: 100%;" onchange="updateConfigValue('minSpeechMs', this.value)">
+                        <span id="minSpeechMsValue" style="font-size: 12px;">400ms</span>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">
+                            语音前填充 (ms):
+                        </label>
+                        <input type="range" id="preSpeechPadMs" min="100" max="2000" step="100" value="800" 
+                               style="width: 100%;" onchange="updateConfigValue('preSpeechPadMs', this.value)">
+                        <span id="preSpeechPadMsValue" style="font-size: 12px;">800ms</span>
+                    </div>
+                </div>
+                <div style="margin-top: 12px;">
+                    <button class="btn btn-primary" onclick="applyVADConfig()" style="padding: 8px 16px; font-size: 12px;">
+                        💾 应用配置
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetVADConfig()" style="padding: 8px 16px; font-size: 12px; margin-left: 8px;">
+                        🔄 重置默认
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 录音记录 -->
+        <div class="card">
+            <h2>🎵 录音记录</h2>
+            <div id="recordings" class="audio-list">
+                <div style="text-align: center; color: #6b7280; padding: 40px;">
+                    录音记录将显示在这里...
+                </div>
+            </div>
+        </div>
+
+        <!-- 调试信息 -->
+        <div class="card">
+            <h2>🔧 调试信息</h2>
+            <button class="btn btn-secondary" onclick="toggleDebug()" style="margin-bottom: 16px;">
+                <span>🔍</span>
+                <span>显示/隐藏调试信息</span>
+            </button>
+            <div id="debugPanel" class="debug-panel" style="display: none;"></div>
+        </div>
+
+    <script>
+        // 全局变量
+        let vadInstance = null;
+        let recordings = [];
+        let debugMode = false;
+        
+        // VAD配置参数
+        let vadConfig = {
+            positiveSpeechThreshold: 0.3,
+            negativeSpeechThreshold: 0.25,
+            redemptionMs: 1400,
+            preSpeechPadMs: 800,
+            minSpeechMs: 400,
+            model: "v5"
+        };
+
+        // 页面加载时初始化VAD
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 页面DOM加载完成，开始初始化VAD...');
+            logDebug('系统初始化开始');
+            initVAD();
+        });
+
+        // 初始化VAD
+        function initVAD() {
+            logDebug('检查VAD库加载状态...');
+            
+            // 检查VAD库是否已加载
+            if (window.vad && window.vad.MicVAD) {
+                // 检查VAD实例的加载状态
+                if (vadInstance && !vadInstance.loading) {
+                    logDebug('✅ VAD库已加载完成');
+                    updateVADStatus('ready', '✅ VAD库已加载完成，可以开始监听');
+                    addDebugLog('VAD库加载完成');
+                }
+                enableControls();
+                showVADInfo();
+                
+                // 检查麦克风权限
+                checkMicrophonePermission();
+            } else {
+                logDebug('⏳ VAD库还在加载中...');
+                updateVADStatus('loading', '🔄 VAD库加载中，请稍候...');
+                
+                // 等待一段时间后重试（指数退避策略）
+                setTimeout(initVAD, 1000);
+            }
+        }
+
+        // 检查麦克风权限
+        async function checkMicrophonePermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                logDebug('✅ 麦克风权限已获取');
+                updateVADStatus('ready', '✅ VAD已就绪，麦克风权限正常');
+            } catch (error) {
+                logDebug('❌ 麦克风权限获取失败: ' + error.message);
+                updateVADStatus('error', '❌ 麦克风权限被拒绝，请允许麦克风访问');
+                showError('麦克风权限被拒绝，请检查浏览器设置并刷新页面');
+            }
+        }
+
+        // 更新VAD状态显示
+        function updateVADStatus(status, message) {
+            const statusDiv = document.getElementById('vadStatus');
+            statusDiv.className = `status-indicator status-${status}`;
+            statusDiv.innerHTML = `<span>${getStatusIcon(status)}</span><span>${message}</span>`;
+            logDebug(`状态更新: ${status} - ${message}`);
+        }
+
+        // 获取状态图标
+        function getStatusIcon(status) {
+            const icons = {
+                'ready': '✅',
+                'loading': '🔄',
+                'error': '❌',
+                'listening': '🎧',
+                'recording': '🔴'
+            };
+            return icons[status] || '⚪';
+        }
+
+        // 显示VAD信息
+        function showVADInfo() {
+            const infoDiv = document.getElementById('vadInfo');
+            const modelInfo = vadInstance ? `当前使用: ${vadInstance.model || 'v5'}` : '未初始化';
+            
+            infoDiv.innerHTML = `
+                <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 14px;">
+                    <strong>📋 系统信息:</strong><br>
+                    <div style="margin-top: 8px;">
+                        <span style="color: #6b7280;">VAD库状态:</span> <span style="color: #10b981;">已加载</span><br>
+                        <span style="color: #6b7280;">MicVAD类:</span> <span style="color: #10b981;">可用</span><br>
+                        <span style="color: #6b7280;">版本:</span> 0.0.27<br>
+                        <span style="color: #6b7280;">ONNX Runtime:</span> 1.22.0<br>
+                        <span style="color: #6b7280;">采样率:</span> 16kHz<br>
+                        <span style="color: #6b7280;">声道:</span> 单声道<br>
+                        <span style="color: #6b7280;">模型:</span> <span style="color: #10b981;">${modelInfo}</span>
+                    </div>
+                </div>
+                <div style="margin-top: 8px; padding: 12px; background: #f0f9ff; border-radius: 8px; font-size: 12px; color: #0369a1;">
+                    <strong>💡 优化特性:</strong><br>
+                    • 使用Silero V5模型（更高精度）<br>
+                    • 实时语音概率监控<br>
+                    • 误触发检测处理<br>
+                    • 自定义音频流配置<br>
+                    • 资源自动清理
+                </div>
+            `;
+        }
+        
+        // 更新VAD实例信息显示
+        function updateVADInstanceInfo() {
+            if (vadInstance) {
+                const infoDiv = document.getElementById('vadInfo');
+                const existingInfo = infoDiv.querySelector('.vad-instance-info');
+                
+                if (existingInfo) {
+                    existingInfo.remove();
+                }
+                
+                const instanceInfo = document.createElement('div');
+                instanceInfo.className = 'vad-instance-info';
+                instanceInfo.style.cssText = `
+                    margin-top: 8px; 
+                    padding: 8px; 
+                    background: #ecfdf5; 
+                    border-radius: 6px; 
+                    font-size: 12px;
+                    color: #047857;
+                `;
+                instanceInfo.innerHTML = `
+                    <strong>🎯 VAD实例状态:</strong><br>
+                    • 监听状态: ${vadInstance.listening ? '✅ 运行中' : '⏸️ 已暂停'}<br>
+                    • 用户说话状态: ${vadInstance.userSpeaking ? '🎤 正在说话' : '🔇 未说话'}<br>
+                    • 加载状态: ${vadInstance.loading ? '🔄 加载中' : '✅ 已加载'}<br>
+                    • 错误状态: ${vadInstance.errored ? '❌ ' + (vadInstance.errored.message || '未知错误') : '✅ 正常'}
+                `;
+                infoDiv.appendChild(instanceInfo);
+            }
+        }
+
+        // 启用控制按钮
+        function enableControls() {
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            logDebug('控制按钮已启用');
+        }
+
+        // 开始VAD监听
+        async function startVAD() {
+            if (!window.vad || !window.vad.MicVAD) {
+                showError('VAD库还未加载完成，请稍后再试');
+                return;
+            }
+
+            try {
+                logDebug('开始创建VAD实例...');
+                updateVADStatus('loading', '🔄 正在启动语音检测...');
+
+                // 创建VAD实例 - 根据官方文档最佳实践，添加更多配置选项
+                vadInstance = await window.vad.MicVAD.new({
+                    onSpeechStart: () => {
+                        logDebug('🎤 检测到语音开始');
+                        updateRecordingStatus('🔴 正在录制语音');
+                        addDebugLog('语音检测开始');
+                    },
+                    onSpeechRealStart: () => {
+                        logDebug('🎤 检测到实际语音开始（超过阈值）');
+                        addDebugLog('实际语音开始检测');
+                    },
+                    onSpeechEnd: (audioData) => {
+                        logDebug('⏹️ 检测到语音结束');
+                        updateRecordingStatus('⚪ 语音结束');
+                        
+                        // 处理录制的音频数据
+                        if (audioData && audioData.length > 0) {
+                            logDebug(`音频数据长度: ${audioData.length} 采样点`);
+                            processAudioData(audioData);
+                        } else {
+                            logDebug('⚠️ VAD没有提供音频数据');
+                        }
+                        addDebugLog('语音检测结束');
+                    },
+                    onFrameProcessed: (probabilities, frame) => {
+                        // 实时显示语音检测概率
+                        if (debugMode) {
+                            const speechProb = (probabilities.isSpeech * 100).toFixed(1);
+                            addDebugLog(`语音概率: ${speechProb}%`);
+                        }
+                    },
+                    onVADMisfire: () => {
+                        logDebug('⚠️ VAD误触发检测');
+                        addDebugLog('VAD误触发（语音片段过短）');
+                    },
+                    // 算法配置参数（使用用户配置）
+                    positiveSpeechThreshold: vadConfig.positiveSpeechThreshold,  // 语音检测阈值
+                    negativeSpeechThreshold: vadConfig.negativeSpeechThreshold, // 非语音检测阈值
+                    redemptionMs: vadConfig.redemptionMs,            // 语音检测恢复时间
+                    preSpeechPadMs: vadConfig.preSpeechPadMs,           // 语音前填充时间
+                    minSpeechMs: vadConfig.minSpeechMs,              // 最小语音时长
+                    submitUserSpeechOnPause: false, // 暂停时是否提交语音
+                    model: vadConfig.model,                   // 使用新版Silero V5模型
+                    
+                    // 音频流配置
+                    getStream: async () => {
+                        // 自定义音频流获取，添加更多音频约束
+                        return navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                channelCount: 1,
+                                echoCancellation: true,
+                                autoGainControl: true,
+                                noiseSuppression: true,
+                                sampleRate: 16000
+                            }
+                        });
+                    },
+                    
+                    // 资源路径配置
+                    onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
+                    baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/"
+                });
+
+                // 开始监听
+                vadInstance.start();
+                updateListeningStatus('🎧 正在监听语音...');
+                
+                // 开始实时状态轮询
+                startStatusPolling();
+                
+                // 更新按钮状态
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                
+                logDebug('✅ VAD监听已启动');
+                updateVADStatus('ready', '✅ VAD正在运行中');
+                addDebugLog('VAD监听启动成功');
+                
+                // 更新VAD实例信息显示
+                updateVADInstanceInfo();
+                
+            } catch (error) {
+                console.error('启动VAD失败:', error);
+                logDebug('❌ VAD启动失败: ' + error.message);
+                updateVADStatus('error', '❌ VAD启动失败: ' + error.message);
+                showError('启动语音检测失败: ' + error.message);
+                addDebugLog('VAD启动失败: ' + error.message);
+            }
+        }
+
+        // 停止VAD监听
+        async function stopVAD() {
+            try {
+                if (vadInstance) {
+                    // 检查VAD实例是否正在监听
+                    if (vadInstance.listening) {
+                        // 如果设置了submitUserSpeechOnPause为true，这里会触发onSpeechEnd
+                        vadInstance.pause();
+                        logDebug('VAD实例已暂停');
+                    }
+                    
+                    // 完全销毁VAD实例以释放资源
+                vadInstance = null;
+            }
+            
+            updateListeningStatus('🔇 未监听');
+            updateRecordingStatus('⚪ 未录制');
+            
+            // 停止状态轮询
+            stopStatusPolling();
+                
+                // 更新按钮状态
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                
+                logDebug('✅ VAD监听已停止');
+                updateVADStatus('ready', '✅ VAD已停止，可重新开始');
+                addDebugLog('VAD监听已停止');
+                
+                // 更新VAD实例信息显示
+                updateVADInstanceInfo();
+                
+                // 强制垃圾回收提示（如果浏览器支持）
+                if (window.gc) {
+                    window.gc();
+                    logDebug('强制垃圾回收已触发');
+                }
+                
+            } catch (error) {
+                console.error('停止VAD时发生错误:', error);
+                logDebug('❌ 停止VAD失败: ' + error.message);
+                showError('停止语音检测失败: ' + error.message);
+            }
+        }
+
+        // 更新监听状态
+        function updateListeningStatus(message) {
+            const statusDiv = document.getElementById('listeningStatus');
+            const isListening = vadInstance ? vadInstance.listening : false;
+            statusDiv.innerHTML = `<span>${getStatusIcon(isListening ? 'listening' : 'idle')}</span><span>${message}</span>`;
+            statusDiv.className = `status-indicator ${isListening ? 'status-listening' : 'status-idle'}`;
+        }
+
+        // 更新录制状态
+        function updateRecordingStatus(message) {
+            const statusDiv = document.getElementById('recordingStatus');
+            const isRecording = vadInstance ? vadInstance.userSpeaking : false;
+            statusDiv.innerHTML = `<span>${getStatusIcon(isRecording ? 'recording' : 'idle')}</span><span>${message}</span>`;
+            statusDiv.className = `status-indicator ${isRecording ? 'status-recording' : 'status-idle'}`;
+            
+            // 实时显示userSpeaking状态
+            const userSpeakingStatus = document.getElementById('userSpeakingStatus');
+            if (userSpeakingStatus) {
+                userSpeakingStatus.textContent = isRecording ? '🎤 正在说话' : '🔇 未说话';
+                userSpeakingStatus.className = isRecording ? 'status-recording' : 'status-idle';
+            }
+        }
+        
+        // 实时轮询更新userSpeaking状态
+        let statusPollingInterval = null;
+        function startStatusPolling() {
+            if (statusPollingInterval) {
+                clearInterval(statusPollingInterval);
+            }
+            
+            statusPollingInterval = setInterval(() => {
+                if (vadInstance) {
+                    // 实时更新录制状态显示
+                    const isRecording = vadInstance.userSpeaking;
+                    updateRecordingStatus(isRecording ? '🔴 正在录制语音' : '⚪ 语音结束');
+                    
+                    // 在控制台显示实时状态（用于调试）
+                    if (debugMode && isRecording) {
+                        console.log('🎤 实时检测到用户正在说话');
+                    }
+                }
+            }, 100); // 每100毫秒检查一次
+        }
+        
+        function stopStatusPolling() {
+            if (statusPollingInterval) {
+                clearInterval(statusPollingInterval);
+                statusPollingInterval = null;
+            }
+        }
+
+        // 处理音频数据并保存为WAV文件
+        function processAudioData(audioData) {
+            logDebug('开始处理音频数据...');
+            
+            try {
+                // 将Float32Array音频数据转换为WAV格式
+                const wavBlob = audioDataToWav(audioData);
+                
+                // 创建音频URL用于播放
+                const audioUrl = URL.createObjectURL(wavBlob);
+                
+                // 计算音频时长
+                const duration = (audioData.length / 16000).toFixed(2);
+                
+                // 创建录音记录
+                const recording = {
+                    id: Date.now(),
+                    timestamp: new Date(),
+                    audioUrl: audioUrl,
+                    duration: duration,
+                    fileName: `vad-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.wav`
+                };
+                
+                // 添加到录音记录数组
+                recordings.unshift(recording);
+                
+                // 更新录音记录显示
+                updateRecordingsDisplay();
+                
+                logDebug(`✅ 音频文件已生成: ${recording.fileName}, 时长: ${duration}秒`);
+                addDebugLog(`录音完成: ${duration}秒`);
+                
+            } catch (error) {
+                console.error('处理音频数据失败:', error);
+                logDebug('❌ 处理音频数据失败: ' + error.message);
+                showError('处理录音数据失败: ' + error.message);
+            }
+        }
+        
+        // 更新录音记录显示
+        function updateRecordingsDisplay() {
+            const recordingsDiv = document.getElementById('recordings');
+            
+            if (recordings.length === 0) {
+                recordingsDiv.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; padding: 40px;">
+                        录音记录将显示在这里...
+                    </div>
+                `;
+                return;
+            }
+            
+            recordingsDiv.innerHTML = recordings.map(recording => `
+                <div class="audio-item" data-id="${recording.id}">
+                    <div class="audio-header">
+                        <div class="audio-title">
+                            🎵 录音 ${recording.timestamp.toLocaleString()}
+                        </div>
+                        <div class="audio-meta">
+                            时长: ${recording.duration}秒
+                        </div>
+                    </div>
+                    <div class="audio-controls">
+                        <audio class="audio-player" controls>
+                            <source src="${recording.audioUrl}" type="audio/wav">
+                            您的浏览器不支持音频播放
+                        </audio>
+                        <a href="${recording.audioUrl}" download="${recording.fileName}" 
+                           class="btn btn-secondary" style="padding: 8px 16px; font-size: 12px;">
+                            📥 下载
+                        </a>
+                        <button onclick="deleteRecording(${recording.id})" 
+                                class="btn btn-danger" style="padding: 8px 16px; font-size: 12px;">
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 删除录音记录
+        function deleteRecording(id) {
+            const index = recordings.findIndex(rec => rec.id === id);
+            if (index !== -1) {
+                // 释放音频URL
+                URL.revokeObjectURL(recordings[index].audioUrl);
+                recordings.splice(index, 1);
+                updateRecordingsDisplay();
+                logDebug(`录音记录已删除: ${id}`);
+                addDebugLog(`删除录音记录: ${id}`);
+            }
+        }
+
+        // 清空所有录音记录
+        function clearRecordings() {
+            if (recordings.length === 0) {
+                showInfo('没有录音记录需要清空');
+                return;
+            }
+            
+            if (confirm(`确定要清空所有录音记录吗？共 ${recordings.length} 条记录`)) {
+                // 释放所有音频URL
+                recordings.forEach(rec => URL.revokeObjectURL(rec.audioUrl));
+                recordings = [];
+                updateRecordingsDisplay();
+                logDebug('所有录音记录已清空');
+                addDebugLog('清空所有录音记录');
+                showInfo('录音记录已清空');
+            }
+        }
+
+        // 将Float32Array音频数据转换为WAV格式
+        function audioDataToWav(audioData) {
+            const sampleRate = 16000; // VAD使用16kHz采样率
+            const numChannels = 1;   // 单声道
+            
+            // 计算WAV文件大小
+            const buffer = new ArrayBuffer(44 + audioData.length * 2);
+            const view = new DataView(buffer);
+            
+            // WAV文件头
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + audioData.length * 2, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, audioData.length * 2, true);
+            
+            // 写入音频数据（16位PCM）
+            let offset = 44;
+            for (let i = 0; i < audioData.length; i++) {
+                const sample = Math.max(-1, Math.min(1, audioData[i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+            
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        // 辅助函数：写入字符串到DataView
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        // 调试功能
+        function logDebug(message) {
+            if (debugMode) {
+                console.log(`[DEBUG] ${message}`);
+            }
+        }
+
+        function addDebugLog(message) {
+            if (!debugMode) return;
+            
+            const debugPanel = document.getElementById('debugPanel');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            debugPanel.appendChild(logEntry);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+        }
+
+        function toggleDebug() {
+            debugMode = !debugMode;
+            const debugPanel = document.getElementById('debugPanel');
+            const debugBtn = document.querySelector('button[onclick="toggleDebug()"]');
+            
+            if (debugMode) {
+                debugPanel.style.display = 'block';
+                debugBtn.innerHTML = '<span>👁️</span><span>隐藏调试信息</span>';
+                addDebugLog('调试模式已开启');
+            } else {
+                debugPanel.style.display = 'none';
+                debugBtn.innerHTML = '<span>🔍</span><span>显示调试信息</span>';
+                logDebug('调试模式已关闭');
+            }
+        }
+
+        // 错误处理和用户提示
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #ef4444;
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                z-index: 1000;
+                max-width: 300px;
+            `;
+            errorDiv.innerHTML = `❌ ${message}`;
+            document.body.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.parentNode.removeChild(errorDiv);
+                }
+            }, 5000);
+        }
+
+        function showInfo(message) {
+            const infoDiv = document.createElement('div');
+            infoDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #10b981;
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                z-index: 1000;
+                max-width: 300px;
+            `;
+            infoDiv.innerHTML = `ℹ️ ${message}`;
+            document.body.appendChild(infoDiv);
+            
+            setTimeout(() => {
+                if (infoDiv.parentNode) {
+                    infoDiv.parentNode.removeChild(infoDiv);
+                }
+            }, 3000);
+        }
+
+        // 配置面板相关函数
+        function toggleConfigPanel() {
+            const configPanel = document.getElementById('configPanel');
+            const isVisible = configPanel.style.display !== 'none';
+            configPanel.style.display = isVisible ? 'none' : 'block';
+            
+            if (!isVisible) {
+                // 显示面板时加载当前配置
+                loadCurrentConfig();
+            }
+        }
+        
+        function loadCurrentConfig() {
+            document.getElementById('positiveThreshold').value = vadConfig.positiveSpeechThreshold;
+            document.getElementById('positiveThresholdValue').textContent = vadConfig.positiveSpeechThreshold;
+            
+            document.getElementById('negativeThreshold').value = vadConfig.negativeSpeechThreshold;
+            document.getElementById('negativeThresholdValue').textContent = vadConfig.negativeSpeechThreshold;
+            
+            document.getElementById('minSpeechMs').value = vadConfig.minSpeechMs;
+            document.getElementById('minSpeechMsValue').textContent = vadConfig.minSpeechMs + 'ms';
+            
+            document.getElementById('preSpeechPadMs').value = vadConfig.preSpeechPadMs;
+            document.getElementById('preSpeechPadMsValue').textContent = vadConfig.preSpeechPadMs + 'ms';
+        }
+        
+        function updateConfigValue(param, value) {
+            const valueElement = document.getElementById(param + 'Value');
+            if (param === 'minSpeechMs' || param === 'preSpeechPadMs') {
+                valueElement.textContent = value + 'ms';
+            } else {
+                valueElement.textContent = value;
+            }
+        }
+        
+        function applyVADConfig() {
+            // 更新配置对象
+            vadConfig.positiveSpeechThreshold = parseFloat(document.getElementById('positiveThreshold').value);
+            vadConfig.negativeSpeechThreshold = parseFloat(document.getElementById('negativeThreshold').value);
+            vadConfig.minSpeechMs = parseInt(document.getElementById('minSpeechMs').value);
+            vadConfig.preSpeechPadMs = parseInt(document.getElementById('preSpeechPadMs').value);
+            
+            // 如果VAD正在运行，需要重启才能应用新配置
+            if (isListening) {
+                showInfo('配置已保存，需要重启VAD才能生效');
+                logDebug('VAD配置已更新，需要重启');
+            } else {
+                showInfo('配置已保存');
+                logDebug('VAD配置已更新');
+            }
+            
+            // 隐藏配置面板
+            document.getElementById('configPanel').style.display = 'none';
+            
+            addDebugLog(`配置更新: 语音阈值=${vadConfig.positiveSpeechThreshold}, 最小时长=${vadConfig.minSpeechMs}ms`);
+        }
+        
+        function resetVADConfig() {
+            // 重置为默认值
+            vadConfig = {
+                positiveSpeechThreshold: 0.3,
+                negativeSpeechThreshold: 0.25,
+                redemptionMs: 1400,
+                preSpeechPadMs: 800,
+                minSpeechMs: 400,
+                model: "v5"
+            };
+            
+            // 更新UI
+            loadCurrentConfig();
+            showInfo('配置已重置为默认值');
+            logDebug('VAD配置已重置');
+            addDebugLog('配置重置为默认值');
+        }
+
+        // 页面卸载时清理资源
+        window.addEventListener('beforeunload', function() {
+            if (vadInstance) {
+                vadInstance.pause();
+            }
+            
+            // 释放所有音频URL
+            recordings.forEach(rec => URL.revokeObjectURL(rec.audioUrl));
+            
+            logDebug('页面卸载，资源已清理');
+        });
+
+        // 键盘快捷键支持
+        document.addEventListener('keydown', function(event) {
+            // Ctrl+Enter 开始/停止监听
+            if (event.ctrlKey && event.key === 'Enter') {
+                event.preventDefault();
+                const isListening = vadInstance ? vadInstance.listening : false;
+                if (isListening) {
+                    stopVAD();
+                } else {
+                    startVAD();
+                }
+            }
+            
+            // Escape 键停止监听
+            if (event.key === 'Escape') {
+                const isListening = vadInstance ? vadInstance.listening : false;
+                if (isListening) {
+                    event.preventDefault();
+                    stopVAD();
+                }
+            }
+        });
+
+        // 添加键盘快捷键提示
+        document.addEventListener('DOMContentLoaded', function() {
+            const controlsDiv = document.querySelector('.controls');
+            const shortcutHint = document.createElement('div');
+            shortcutHint.style.cssText = `
+                font-size: 12px;
+                color: #6b7280;
+                margin-top: 8px;
+            `;
+            shortcutHint.innerHTML = '💡 快捷键: Ctrl+Enter 开始/停止监听, Esc 停止监听';
+            controlsDiv.appendChild(shortcutHint);
+        });
+    </script>
+</body>
+</html>
+        }
+
+        // 显示调试信息
+        function showDebugInfo() {
+            const debugDiv = document.getElementById('debugInfo');
+            
+            // 检查VAD实例的实际属性
+            const isListening = vadInstance ? vadInstance.listening : false;
+            
+            // 检查VAD实例的所有可枚举属性
+            const vadInstanceProps = vadInstance ? Object.keys(vadInstance) : [];
+            const vadInstanceValues = {};
+            
+            if (vadInstance) {
+                // 获取VAD实例的所有属性值
+                for (let key in vadInstance) {
+                    if (vadInstance.hasOwnProperty(key)) {
+                        vadInstanceValues[key] = vadInstance[key];
+                    }
+                }
+            }
+            
+            debugDiv.innerHTML = `
+                <div style="background: white; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                    <strong>调试信息:</strong><br>
+                    - window.vad: ${window.vad ? '已定义' : '未定义'}<br>
+                    - window.vad.MicVAD: ${window.vad && window.vad.MicVAD ? '可用' : '不可用'}<br>
+                    - vadInstance: ${vadInstance ? '已创建' : '未创建'}<br>
+                    - listening: ${isListening}<br>
+                    - VAD实例属性: ${vadInstanceProps.length > 0 ? vadInstanceProps.join(', ') : '无'}<br>
+                    - 音频采样率: 16000Hz<br>
+                    - 当前时间: ${new Date().toLocaleString()}
+                    ${vadInstanceProps.length > 0 ? `<br><strong>VAD实例属性值:</strong><br>` : ''}
+                    ${vadInstanceProps.map(prop => `- ${prop}: ${JSON.stringify(vadInstanceValues[prop])}`).join('<br>')}
+                </div>
+            `;
+        }
+
+        // 错误处理
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('全局错误:', message, 'at', source, 'line', lineno);
+            updateVADStatus('error', '❌ 发生错误: ' + message);
+        };
+    </script>
+</body>
+</html>
