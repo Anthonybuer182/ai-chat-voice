@@ -953,8 +953,6 @@
                                 ws2.send(JSON.stringify({
                                     type: 'audio_chunk',
                                     audio_data: base64,
-                                    sample_rate: 16000,
-                                    duration: audioData.length / 16000,
                                     language: currentLanguage,
                                     tts_engine: document.getElementById('ttsEngine').value
                                 }));
