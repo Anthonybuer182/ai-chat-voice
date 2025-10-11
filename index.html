@@ -1160,14 +1160,19 @@
             
             if (tabIndex === 0) {
                 stopVAD();
-                
+                 if (ws2&&ws2.readyState == WebSocket.OPEN) {
+                    isManualClose = true;
+                    ws2.close();
+                }
                 if (!ws1 || ws1.readyState !== WebSocket.OPEN) {
                     connectTab1();
                 }
-                if (ws2) {
-                    ws2.close();
-                }
+               
             } else {
+                if (ws1 && ws1.readyState == WebSocket.OPEN) {
+                    isManualClose = true;
+                    ws1.close();
+                }
                 // 切换到Tab 2：启动VAD检测
                 if (!ws2 || ws2.readyState !== WebSocket.OPEN) {
                     connectTab2();
@@ -1177,10 +1182,6 @@
                 setTimeout(() => {
                     startVAD();
                 }, 500);
-                
-                if (ws1) {
-                    ws1.close();
-                }
             }
         }
         
@@ -1188,6 +1189,9 @@
         function connectTab1() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws1 = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
+            
+            // 标记为主动连接，不是重连
+            isManualClose = false;
             
             ws1.onopen = () => {
                 updateStatus('status1', '已连接', true);
@@ -1229,7 +1233,10 @@
             
             ws1.onclose = () => {
                 updateStatus('status1', '已断开', false);
-                attemptReconnect(connectTab1);
+                // 只有在非主动关闭的情况下才尝试重连
+                if (!isManualClose) {
+                    attemptReconnect(connectTab1);
+                }
             };
         }
         
@@ -1237,6 +1244,9 @@
         function connectTab2() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws2 = new WebSocket(`${protocol}//${window.location.host}/ws/voice`);
+            
+            // 标记为主动连接，不是重连
+            isManualClose = false;
             
             ws2.onopen = () => {
                 updateStatus('status2', '已连接 - 可以开始说话', true);
@@ -1273,7 +1283,10 @@
             
             ws2.onclose = () => {
                 updateStatus('status2', '已断开', false);
-                attemptReconnect(connectTab2);
+                // 只有在非主动关闭的情况下才尝试重连
+                if (!isManualClose) {
+                    attemptReconnect(connectTab2);
+                }
             };
         }
         
