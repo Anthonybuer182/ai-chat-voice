@@ -103,18 +103,18 @@ class Config:
     系统配置管理类
     
     属性说明：
-    - DEEPSEEK_API_KEY: DeepSeek API密钥，从环境变量读取
-    - DEEPSEEK_MODEL: 使用的DeepSeek模型名称
-    - DEEPSEEK_API_BASE: DeepSeek API基础URL
+    - API_KEY: API密钥，从环境变量读取
+    - MODEL: 使用的模型名称
+    - API_BASE: API基础URL
     - WHISPER_MODEL: Whisper语音识别模型大小 (tiny, base, small, medium, large)
     - SAMPLE_RATE: 音频采样率
     - SYSTEM_PROMPTS: 系统提示词模板，按语言和模式分类
     """
     
-    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "your-deepseek-api-key-here")
-    DEEPSEEK_MODEL = "deepseek-chat"
-    DEEPSEEK_API_BASE = "https://api.deepseek.com/v1"
-    WHISPER_MODEL = "base"  # tiny, base, small, medium, large中文
+    API_KEY = os.getenv("API_KEY", "your-api-key-here")
+    MODEL = os.getenv("MODEL", "deepseek-chat")
+    API_BASE = os.getenv("API_BASE", "https://api.deepseek.com/v1")
+    WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")  # tiny, base, small, medium, large中文
     SAMPLE_RATE = 16000
 
     # 系统提示词模板
@@ -135,8 +135,8 @@ logger.info("配置类初始化完成")
 
 # 初始化OpenAI客户端（用于DeepSeek API）
 client = AsyncOpenAI(
-    api_key=config.DEEPSEEK_API_KEY,
-    base_url=config.DEEPSEEK_API_BASE
+    api_key=config.API_KEY,
+    base_url=config.API_BASE
 )
 
 # 初始化Whisper模型
@@ -459,18 +459,18 @@ class AIService:
             logger.info(f"开始调用DeepSeek API，消息数量: {len(messages)}")
             
             response = await client.chat.completions.create(
-                model=config.DEEPSEEK_MODEL,
+                model=config.MODEL,
                 messages=messages,
                 max_tokens=500,
                 temperature=0.7
             )
             
             content = response.choices[0].message.content
-            logger.info(f"DeepSeek API调用成功，响应长度: {len(content)} 字符")
+            logger.info(f"API调用成功，响应长度: {len(content)} 字符")
             return content
             
         except Exception as e:
-            logger.error(f"DeepSeek API调用失败: {str(e)}")
+            logger.error(f"API调用失败: {str(e)}")
             return "抱歉，我遇到了一些问题。请稍后再试。"
     
     @staticmethod
@@ -489,7 +489,7 @@ class AIService:
             logger.info(f"开始调用DeepSeek流式API，消息数量: {len(messages)}")
             
             response = await client.chat.completions.create(
-                model=config.DEEPSEEK_MODEL,
+                model=config.MODEL,
                 messages=messages,
                 stream=True,
                 max_tokens=500,
