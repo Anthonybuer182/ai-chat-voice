@@ -3,7 +3,7 @@ AI语音聊天系统后端
 
 功能概述：
 - 支持文本和语音两种聊天模式
-- 集成DeepSeek AI进行智能对话
+- 集成AI进行智能对话
 - 使用Whisper进行语音识别
 - 支持多种TTS引擎进行语音合成
 - 提供WebSocket实时通信
@@ -133,7 +133,7 @@ class Config:
 config = Config()
 logger.info("配置类初始化完成")
 
-# 初始化OpenAI客户端（用于DeepSeek API）
+# 初始化OpenAI客户端（用于 API）
 client = AsyncOpenAI(
     api_key=config.API_KEY,
     base_url=config.API_BASE
@@ -427,7 +427,7 @@ class AIService:
     AI服务类，集成多种AI功能
     
     功能：
-    - DeepSeek聊天API调用
+    - 聊天API调用
     - 流式聊天响应
     - 多种TTS引擎支持
     - Whisper语音识别
@@ -447,7 +447,7 @@ class AIService:
     @log_performance
     async def get_chat_response(messages: List[dict]) -> str:
         """
-        获取DeepSeek聊天API的非流式响应
+        获取聊天API的非流式响应
         
         Args:
             messages: 聊天消息列表，包含角色和内容
@@ -456,7 +456,7 @@ class AIService:
             str: AI生成的响应内容
         """
         try:
-            logger.info(f"开始调用DeepSeek API，消息数量: {len(messages)}")
+            logger.info(f"开始调用API，消息数量: {len(messages)}")
             
             response = await client.chat.completions.create(
                 model=config.MODEL,
@@ -477,7 +477,7 @@ class AIService:
     @log_performance
     async def get_chat_response_stream(messages: List[dict]) -> AsyncGenerator[str, None]:
         """
-        获取DeepSeek聊天API的流式响应
+        获取聊天API的流式响应
         
         Args:
             messages: 聊天消息列表，包含角色和内容
@@ -486,7 +486,7 @@ class AIService:
             str: 流式响应的文本块
         """
         try:
-            logger.info(f"开始调用DeepSeek流式API，消息数量: {len(messages)}")
+            logger.info(f"开始调用流式API，消息数量: {len(messages)}")
             
             response = await client.chat.completions.create(
                 model=config.MODEL,
@@ -506,10 +506,10 @@ class AIService:
                     total_length += len(content)
                     yield content
             
-            logger.info(f"DeepSeek流式API调用完成，共 {chunk_count} 个数据块，总长度: {total_length} 字符")
+            logger.info(f"流式API调用完成，共 {chunk_count} 个数据块，总长度: {total_length} 字符")
             
         except Exception as e:
-            logger.error(f"DeepSeek流式API调用失败: {str(e)}")
+            logger.error(f"流式API调用失败: {str(e)}")
             yield "抱歉，我遇到了一些问题。请稍后再试。"
     
     @log_performance
