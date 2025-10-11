@@ -940,7 +940,25 @@
                         
                         // 处理录制的音频数据
                         if (audioData && audioData.length > 0) {
-                            processAudioData(audioData);
+                            // 直接使用VAD工具函数处理音频数据
+                            const wavBuffer = vad.utils.encodeWAV(audioData);
+                            const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
+                            
+                            const voiceMessageElement = createUserVoiceMessageElement(base64);
+                            addVoiceMessage('messages2', voiceMessageElement, 'user');
+                            updateTranscriptionMessage('messages2', '', 'start');
+                            
+                            // 如果WebSocket连接正常，发送音频数据
+                            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                                ws2.send(JSON.stringify({
+                                    type: 'audio_chunk',
+                                    audio_data: base64,
+                                    sample_rate: 16000,
+                                    duration: audioData.length / 16000,
+                                    language: currentLanguage,
+                                    tts_engine: document.getElementById('ttsEngine').value
+                                }));
+                            }
                         } else {
                             console.warn('VAD没有提供音频数据');
                         }
@@ -973,76 +991,7 @@
             
             console.log('VAD监听已停止');
         }
-        // 处理音频数据并保存为WAV文件
-        function processAudioData(audioData) {
-            console.log('处理音频数据...');
-            
-            // 将Float32Array音频数据转换为WAV格式
-            const wavBlob = audioDataToWav(audioData);
 
-            const reader = new FileReader();
-            reader.onload = () => {
-                const base64Audio = reader.result.split(',')[1];
-                const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
-                addVoiceMessage('messages2', voiceMessageElement, 'user');
-                updateTranscriptionMessage('messages2', '', 'start');
-                // 如果WebSocket连接正常，发送音频数据
-                if (ws2 && ws2.readyState === WebSocket.OPEN) {
-                    ws2.send(JSON.stringify({
-                        type: 'audio_chunk',
-                        audio_data: base64Audio,
-                        sample_rate: 16000,
-                        duration: audioData.length / 16000,
-                        language: currentLanguage,
-                        tts_engine: document.getElementById('ttsEngine').value
-                    }));
-                }
-            };
-            reader.readAsDataURL(wavBlob);
-            
-        }
-        
-        // 将Float32Array音频数据转换为WAV格式
-        function audioDataToWav(audioData) {
-            const sampleRate = 16000; // VAD使用16kHz采样率
-            const numChannels = 1;   // 单声道
-            
-            // 计算WAV文件大小
-            const buffer = new ArrayBuffer(44 + audioData.length * 2);
-            const view = new DataView(buffer);
-            
-            // WAV文件头
-            writeString(view, 0, 'RIFF');
-            view.setUint32(4, 36 + audioData.length * 2, true);
-            writeString(view, 8, 'WAVE');
-            writeString(view, 12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, numChannels, true);
-            view.setUint32(24, sampleRate, true);
-            view.setUint32(28, sampleRate * 2, true);
-            view.setUint16(32, 2, true);
-            view.setUint16(34, 16, true);
-            writeString(view, 36, 'data');
-            view.setUint32(40, audioData.length * 2, true);
-            
-            // 写入音频数据（16位PCM）
-            let offset = 44;
-            for (let i = 0; i < audioData.length; i++) {
-                const sample = Math.max(-1, Math.min(1, audioData[i]));
-                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-                offset += 2;
-            }
-            
-            return new Blob([view], { type: 'audio/wav' });
-        }
-        
-        // 辅助函数：写入字符串到DataView
-        function writeString(view, offset, string) {
-            for (let i = 0; i < string.length; i++) {
-                view.setUint8(offset + i, string.charCodeAt(i));
-            }
-        }
         // 设置语言选择器
         function setupLanguageSelector() {
             // 为语言切换按钮添加ARIA标签和更新文本
