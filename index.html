@@ -650,6 +650,13 @@
             background: #6c757d;
             animation: thinking 1.4s ease-in-out infinite;
         }
+        .thinking-dot-assitant {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #f8f9fa;
+            animation: thinking 1.4s ease-in-out infinite;
+        }
         
         .thinking-dot:nth-child(1) {
             animation-delay: -0.32s;
@@ -941,7 +948,7 @@
                             
                             const voiceMessageElement = createUserVoiceMessageElement(base64);
                             addVoiceMessage('messages2', voiceMessageElement, 'user');
-                            updateTranscriptionMessage('messages2', '', 'start');
+                            updateStreamingMessage('messages2', '', 'start', 'user');
                             
                             // 如果WebSocket连接正常，发送音频数据
                             if (ws2 && ws2.readyState === WebSocket.OPEN) {
@@ -1197,10 +1204,10 @@
                 const data = JSON.parse(event.data);
                 
                 if (data.type === 'text_chunk') {
-                    appendStreamingMessage('messages1', data.content, data.status);
+                    updateStreamingMessage('messages1', data.content, data.status, 'assistant');
                 } else if (data.type === 'transcription') {
                     // 更新语音消息的显示内容为转录文本
-                    updateTranscriptionMessage('messages1', data.text, 'end');
+                    updateStreamingMessage('messages1', data.text, 'end', 'user');
                 } else if (data.type === 'audio') {
                     const messageElement = createAssistantVoiceMessageElement(data.audio_data);
                     // 使用当前消息ID关联助手语音消息到对应的用户消息
@@ -1252,10 +1259,10 @@
                 const data = JSON.parse(event.data);
                 
                 if (data.type === 'text_chunk') {
-                    appendStreamingMessage('messages2', data.content, data.status);
+                    updateStreamingMessage('messages2', data.content, data.status, 'assistant');
                 } else if (data.type === 'transcription') {
                     // 更新语音消息的显示内容为转录文本
-                    updateTranscriptionMessage('messages2', data.text, 'end');
+                    updateStreamingMessage('messages2', data.text, 'end', 'user');
                 } else if (data.type === 'audio') {
                     const messageElement = createAssistantVoiceMessageElement(data.audio_data);
                     // 使用当前消息ID关联助手语音消息到对应的用户消息
@@ -1439,7 +1446,7 @@
                     // 录制完成后立即显示语音气泡
                     const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
                     addVoiceMessage('messages1', voiceMessageElement, 'user');
-                    updateTranscriptionMessage('messages1', '', 'start');
+                    updateStreamingMessage('messages1', '', 'start', 'user');
                     
                     // 禁用发送按钮并设置等待状态
                     const sendBtn = document.querySelector('.btn-primary');
@@ -1481,62 +1488,35 @@
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
-        let currentMessage = null;
-        // 更新语音转文本消息
-        function updateTranscriptionMessage(containerId, content, status) {
+        // 统一的消息流式更新函数
+        let currentStreamMessages = {};
+        
+        function updateStreamingMessage(containerId, content, status, messageType = 'assistant') {
             const messagesDiv = document.getElementById(containerId);
-            if(status === 'start') {
-                currentMessage = document.createElement('div');
-                currentMessage.className = 'message user';
-                currentMessage.innerHTML = `
-                    <div class="message-content">
-                        <div class="thinking-dots">
-                            <div class="thinking-dot"></div>
-                            <div class="thinking-dot"></div>
-                            <div class="thinking-dot"></div>
-                        </div>
-                    </div>
-                `;
-                messagesDiv.appendChild(currentMessage);
-            } else if (currentMessage) {
-                const messageContent = currentMessage.querySelector('.message-content');
-                if (messageContent) {
-                    const thinkingDots = messageContent.querySelector('.thinking-dots');
-                    if (content && content.trim() !== '') {
-                        // 移除思考指示器
-                        if (thinkingDots && thinkingDots.parentNode) {
-                            thinkingDots.remove();
-                        }
-                        // 创建文本元素
-                        const textElement = document.createElement('span');
-                        messageContent.appendChild(textElement);
-                        textElement.textContent = content;
-                    }
-                }
-            }
-        }
-        // 添加流式消息
-        let currentStreamMessage = null;
-        function appendStreamingMessage(containerId, content, status) {
-            const messagesDiv = document.getElementById(containerId);
+            const messageKey = `${containerId}_${messageType}`;
             
             if (status === 'start') {
-                currentStreamMessage = document.createElement('div');
-                currentStreamMessage.className = 'message assistant';
-                currentStreamMessage.innerHTML = `
+                // 创建新的消息元素
+                currentStreamMessages[messageKey] = document.createElement('div');
+                currentStreamMessages[messageKey].className = `message ${messageType}`;
+                
+                // 根据消息类型设置不同的思考指示器样式
+                const dotClass = messageType === 'user' ? 'thinking-dot-assitant' : 'thinking-dot';
+                
+                currentStreamMessages[messageKey].innerHTML = `
                     <div class="message-content">
                         <div class="thinking-dots">
-                            <div class="thinking-dot"></div>
-                            <div class="thinking-dot"></div>
-                            <div class="thinking-dot"></div>
+                            <div class="${dotClass}"></div>
+                            <div class="${dotClass}"></div>
+                            <div class="${dotClass}"></div>
                         </div>
                     </div>
                 `;
-                messagesDiv.appendChild(currentStreamMessage);
+                messagesDiv.appendChild(currentStreamMessages[messageKey]);
             }
             
-            if (currentStreamMessage) {
-                const messageContent = currentStreamMessage.querySelector('.message-content');
+            if (currentStreamMessages[messageKey]) {
+                const messageContent = currentStreamMessages[messageKey].querySelector('.message-content');
                 if (messageContent) {
                     const thinkingDots = messageContent.querySelector('.thinking-dots');
                     
@@ -1560,13 +1540,15 @@
                     
                     if (status === 'end') {
                         // 结束状态，清理
-                        currentStreamMessage = null;
+                        delete currentStreamMessages[messageKey];
                     }
                     
                     messagesDiv.scrollTop = messagesDiv.scrollHeight;
                 }
             }
         }
+        
+
         // 添加语音消息（语音指示器直接作为消息）
         function addVoiceMessage(containerId, voiceElement, sender, messageId = null) {
             const messagesDiv = document.getElementById(containerId);
