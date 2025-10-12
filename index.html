@@ -966,7 +966,7 @@
          // 开始VAD监听
         async function startVAD() {
             if (!window.vad || !window.vad.MicVAD) {
-                alert('VAD库还未加载完成，请稍后再试');
+                showError('VAD库还未加载完成，请稍后再试');
                 return;
             }
 
@@ -1057,7 +1057,7 @@
                 
             } catch (error) {
                 console.error('启动VAD失败:', error);
-                alert('启动语音检测失败: ' + error.message);
+                showError('启动语音检测失败: ' + error.message);
             }
         }
 
