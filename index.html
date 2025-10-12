@@ -943,7 +943,6 @@
          // Tab2 实时语音对话专用变量
         let vadInstance = null;
         let isListening = false;
-        let tab2isRecording = false;
         let tab2isWaitingForResponse = false; // Tab2是否正在等待AI回复
         // 页面加载时初始化VAD
         window.onload = function() {
@@ -982,7 +981,7 @@
                     preSpeechPadFrames: 30,
                     onSpeechStart: () => {
                         console.log('🎤 检测到语音开始');
-                        tab2isRecording = true;
+                        isRecording = true;
                     },
                     onFrameProcessed: (probs, frame) => {
                         const indicatorColor = interpolateInferno(probs.isSpeech / 2);
@@ -1008,7 +1007,7 @@
                     },
                     onSpeechEnd: (audioData) => {
                         console.log('⏹️ 检测到语音结束');
-                        tab2isRecording = false;
+                        isRecording = false;
                         
                         // 处理录制的音频数据
                         if (audioData && audioData.length > 0) {
