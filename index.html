@@ -944,6 +944,7 @@
         let vadInstance = null;
         let isListening = false;
         let tab2isRecording = false;
+        let tab2isWaitingForResponse = false; // Tab2是否正在等待AI回复
         // 页面加载时初始化VAD
         window.onload = function() {
             console.log('页面加载完成，开始初始化VAD...');
@@ -974,6 +975,11 @@
 
                 // 创建VAD实例 - 根据官方文档，不需要显式传递stream
                 vadInstance = await window.vad.MicVAD.new({
+                    model: "v5",
+                    positiveSpeechThreshold: 0.4,
+                    negativeSpeechThreshold: 0.4,
+                    minSpeechFrames: 15,
+                    preSpeechPadFrames: 30,
                     onSpeechStart: () => {
                         console.log('🎤 检测到语音开始');
                         tab2isRecording = true;
@@ -1006,6 +1012,14 @@
                         
                         // 处理录制的音频数据
                         if (audioData && audioData.length > 0) {
+                            // 检查是否正在等待回复
+                            if (tab2isWaitingForResponse) {
+                                console.log('正在等待AI回复，跳过新的语音输入');
+                                // 给用户显示提示信息
+                                showError('请等待AI回复后再继续说话');
+                                return;
+                            }
+                            
                             // 直接使用VAD工具函数处理音频数据
                             const wavBuffer = vad.utils.encodeWAV(audioData);
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
@@ -1015,6 +1029,10 @@
                             
                             // 如果WebSocket连接正常，发送音频数据
                             if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                                // 设置等待状态
+                                tab2isWaitingForResponse = true;
+                                updateStatus('status2', '正在处理语音...', false);
+                                
                                 ws2.send(JSON.stringify({
                                     type: 'audio',
                                     audio_data: base64,
@@ -1321,6 +1339,8 @@
             ws2.onopen = () => {
                 updateStatus('status2', '已连接 - 可以开始说话', true);
                 reconnectAttempts = 0;
+                // 重置Tab2的等待状态
+                tab2isWaitingForResponse = false;
             };
             
             ws2.onmessage = async (event) => {
@@ -1340,6 +1360,12 @@
                 } else if (data.type === 'complete') {
                    // 收到完成信号可以继续实施录音了
                    console.log('语音对话完成，可以继续录音');
+                   
+                   // 重置Tab2的等待状态
+                   tab2isWaitingForResponse = false;
+                   
+                   // 更新状态指示器
+                   updateStatus('status2', '已连接 - 可以开始说话', true);
                 } else if (data.type === 'error') {
                     console.error('WebSocket错误:', data.content);
                     showError(data.content);
@@ -1353,6 +1379,8 @@
             
             ws2.onclose = () => {
                 updateStatus('status2', '已断开', false);
+                // 重置Tab2的等待状态
+                tab2isWaitingForResponse = false;
                 // 只有在非主动关闭的情况下才尝试重连
                 if (!isManualClose) {
                     attemptReconnect(connectTab2);
@@ -1730,6 +1758,44 @@
             setTimeout(() => {
                 errorDiv.style.animation = 'slideOutRight 0.3s ease';
                 setTimeout(() => errorDiv.remove(), 300);
+            }, 3000);
+        }
+        
+        // 显示通知消息
+        function showNotification(message, type = 'info') {
+            // 根据类型设置不同的颜色
+            const colors = {
+                info: '#17a2b8',
+                success: '#28a745',
+                warning: '#ffc107',
+                error: '#dc3545'
+            };
+            
+            const color = colors[type] || colors.info;
+            
+            // 创建优雅的通知提示
+            const notificationDiv = document.createElement('div');
+            notificationDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${color};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                animation: slideInRight 0.3s ease;
+                font-weight: 500;
+            `;
+            notificationDiv.textContent = message;
+            
+            document.body.appendChild(notificationDiv);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                notificationDiv.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => notificationDiv.remove(), 300);
             }, 3000);
         }
         
