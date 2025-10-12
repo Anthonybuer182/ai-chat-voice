@@ -1203,7 +1203,7 @@
                 const data = JSON.parse(event.data);
                 
                 if (data.type === 'text') {
-                    updateStreamingMessage('messages1', data.content, data.status, data.role,data.message_id);
+                    updateStreamingMessage('messages1', data.content, data.status, data.role, data.message_id);
                 } else if (data.type === 'audio') {
                     const messageElement = createAssistantVoiceMessageElement(data.content);
                     // 使用当前消息ID关联助手语音消息到对应的用户消息
@@ -1218,6 +1218,14 @@
                     isWaitingForResponse = false;
                     
                     // 启用发送按钮
+                    const sendBtn = document.querySelector('.btn-primary');
+                    sendBtn.disabled = false;
+                } else if (data.type === 'error') {
+                    console.error('WebSocket错误:', data.content);
+                    showError(data.content);
+                    
+                    // 重置等待状态
+                    isWaitingForResponse = false;
                     const sendBtn = document.querySelector('.btn-primary');
                     sendBtn.disabled = false;
                 }
@@ -1254,7 +1262,7 @@
                 const data = JSON.parse(event.data);
                 
                 if (data.type === 'text') {
-                    updateStreamingMessage('messages2', data.content, data.status, data.role,data.message_id);
+                    updateStreamingMessage('messages2', data.content, data.status, data.role, data.message_id);
                 } else if (data.type === 'audio') {
                     const messageElement = createAssistantVoiceMessageElement(data.content);
                     // 使用当前消息ID关联助手语音消息到对应的用户消息
@@ -1266,7 +1274,10 @@
                     }, 100);
                 } else if (data.type === 'complete') {
                    // 收到完成信号可以继续实施录音了
-                   
+                   console.log('语音对话完成，可以继续录音');
+                } else if (data.type === 'error') {
+                    console.error('WebSocket错误:', data.content);
+                    showError(data.content);
                 }
             };
             
@@ -1482,17 +1493,17 @@
         // 统一的消息流式更新函数
         let currentStreamMessages = {};
         
-        function updateStreamingMessage(containerId, content, status, messageType,messgaeId) {
+        function updateStreamingMessage(containerId, content, status, role,messgaeId) {
             const messagesDiv = document.getElementById(containerId);
-            const messageKey = `${containerId}_${messageType}`;
+            const messageKey = `${containerId}_${role}`;
             
             if (status === 'start') {
                 // 创建新的消息元素
                 currentStreamMessages[messageKey] = document.createElement('div');
-                currentStreamMessages[messageKey].className = `message ${messageType}`;
+                currentStreamMessages[messageKey].className = `message ${role}`;
                 
                 // 根据消息类型设置不同的思考指示器样式
-                const dotClass = messageType === 'user' ? 'thinking-dot-assitant' : 'thinking-dot';
+                const dotClass = role === 'user' ? 'thinking-dot-assitant' : 'thinking-dot';
                 
                 currentStreamMessages[messageKey].innerHTML = `
                     <div class="message-content">

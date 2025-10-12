@@ -858,78 +858,6 @@ class AIService:
             logger.error(f"Whisper error: {e}")
             return ""
 
-    @log_performance
-    async def _speech_to_text(self, audio_data: bytes, language: str = "zh") -> str:
-        """
-        语音识别功能，将音频数据转换为文本
-        
-        Args:
-            audio_data: 音频二进制数据
-            language: 语言代码，默认中文"zh"
-            
-        Returns:
-            str: 识别出的文本内容，失败时返回空字符串
-        """
-        logger.debug(f"开始语音识别，语言: {language}, 音频大小: {len(audio_data)} 字节")
-        
-        # 检查是否安装了speech_recognition
-        try:
-            import speech_recognition as sr
-            logger.debug("speech_recognition模块导入成功")
-        except ImportError:
-            logger.warning("speech_recognition未安装，使用pip install SpeechRecognition安装")
-            return ""
-        
-        # 创建识别器
-        r = sr.Recognizer()
-        logger.debug("语音识别器初始化完成")
-        
-        # 将音频数据转换为AudioData对象
-        try:
-            # 使用pydub处理音频
-            from pydub import AudioSegment
-            logger.debug("开始音频格式转换...")
-            
-            # 将音频数据转换为AudioSegment
-            audio = AudioSegment.from_file(io.BytesIO(audio_data))
-            logger.debug("音频数据转换为AudioSegment完成")
-            
-            # 转换为WAV格式
-            wav_data = io.BytesIO()
-            audio.export(wav_data, format="wav")
-            wav_data.seek(0)
-            logger.debug("音频转换为WAV格式完成")
-            
-            # 创建AudioData对象
-            with sr.AudioFile(wav_data) as source:
-                audio_data_obj = r.record(source)
-            logger.debug("AudioData对象创建完成")
-            
-            # 根据语言选择识别引擎
-            if language == "zh":
-                logger.debug("使用Google语音识别API进行中文识别")
-                try:
-                    text = r.recognize_google(audio_data_obj, language="zh-CN")
-                    logger.info(f"中文语音识别成功，识别结果: {text}")
-                except Exception as e:
-                    logger.warning(f"中文语音识别失败: {str(e)}，尝试通用识别")
-                    text = r.recognize_google(audio_data_obj)
-            elif language == "en":
-                logger.debug("使用Google语音识别API进行英文识别")
-                text = r.recognize_google(audio_data_obj, language="en-US")
-                logger.info(f"英文语音识别成功，识别结果: {text}")
-            else:
-                logger.debug("使用Google语音识别API进行通用识别")
-                text = r.recognize_google(audio_data_obj)
-                logger.info(f"通用语音识别成功，识别结果: {text}")
-            
-            logger.info(f"语音识别完成，文本长度: {len(text)} 字符")
-            return text
-            
-        except Exception as e:
-            logger.error(f"语音识别失败: {str(e)}")
-            return ""
-
 # 创建AIService实例
 ai_service = AIService()
 
@@ -1034,18 +962,10 @@ async def websocket_chat(websocket: WebSocket):
                     await manager.send_json(websocket, {
                         "message_id":message_id,
                         "type": "error",
-                        "message": "收到空文本消息"
+                        "content": "收到空文本消息"
                     })
             
             elif message_type == "audio":
-                # 先发送start状态
-                await manager.send_json(websocket, {
-                            "type": "text",
-                            "content": "",
-                            "status": "start",
-                            "role": "user",
-                            "message_id":message_id
-                        })
                 # 处理音频消息
                 audio_base64 = data.get("audio_data", "")
                 language = data.get("language", "zh")
@@ -1053,8 +973,15 @@ async def websocket_chat(websocket: WebSocket):
                 logger.info(f"处理音频消息，会话ID: {session_id}, 语言: {language}, 音频数据大小: {len(audio_base64)} 字节")
                 
                 if audio_base64:
+                     # 先发送start状态
+                    await manager.send_json(websocket, {
+                        "type": "text",
+                        "content": "",
+                        "status": "start",
+                        "role": "user",
+                        "message_id":message_id
+                    })
                     audio_data = audio_processor.base64_to_audio(audio_base64)
-                    
                     # 保存音频文件
                     audio_file = audio_processor.webm_to_wav(audio_data)
                     
@@ -1129,22 +1056,20 @@ async def websocket_chat(websocket: WebSocket):
                                 "message_id":message_id
                             })
                         
-                        # 发送完成信号
-                        await manager.send_json(websocket, {"type": "complete"})
                         logger.info(f"音频消息响应发送完成，识别文本长度: {len(transcribed_text)} 字符，响应长度: {len(full_response)} 字符")
                     else:
                         # 语音识别失败
                         logger.warning("语音识别失败")
                         await manager.send_json(websocket, {
                             "type": "error",
-                            "message": "语音识别失败",
+                            "content": "语音识别失败",
                             "message_id":message_id
                         })
                 else:
                     logger.warning("收到空音频消息")
                     await manager.send_json(websocket, {
                         "type": "error",
-                        "message": "收到空音频消息",
+                        "content": "收到空音频消息",
                         "message_id":message_id
                     })
             
@@ -1155,7 +1080,7 @@ async def websocket_chat(websocket: WebSocket):
                 
                 await manager.send_json(websocket, {
                     "type": "clear_confirm",
-                    "message": "聊天历史已清空",
+                    "content": "聊天历史已清空",
                     "message_id":message_id
                 })
                 logger.info("聊天历史清空确认发送完成")
@@ -1163,11 +1088,11 @@ async def websocket_chat(websocket: WebSocket):
                 logger.warning(f"未知的消息类型: {message_type}")
                 await manager.send_json(websocket, {
                     "type": "error",
-                    "message": f"未知的消息类型: {message_type}",
+                    "content": f"未知的消息类型: {message_type}",
                     "message_id":message_id
                 })
             await manager.send_json(websocket, {"type": "complete","message_id":message_id})
-            logger.info(f"会话开始")
+            logger.info(f"会话 {message_id} 结束")
 
     except WebSocketDisconnect:
         logger.info("WebSocket连接断开")
@@ -1218,6 +1143,14 @@ async def websocket_voice(websocket: WebSocket):
                 logger.info(f"处理音频数据块 #{audio_chunk_count}, 语言: {language}, 数据大小: {len(audio_base64)} 字节")
                 
                 if audio_base64:
+                     # 先发送start状态
+                    await manager.send_json(websocket, {
+                        "type": "text",
+                        "content": "",
+                        "status": "start",
+                        "role": "user",
+                        "message_id":message_id
+                    })
                     # 解码base64音频数据
                     audio_data = audio_processor.base64_to_audio(audio_base64)
                     logger.debug("音频数据base64解码完成")
@@ -1313,22 +1246,25 @@ async def websocket_voice(websocket: WebSocket):
                         logger.warning(f"语音识别失败或识别文本过短 (块 #{audio_chunk_count})，识别文本: {transcribed_text}")
                         await manager.send_json(websocket, {
                             "type": "error",
-                            "message": "语音识别失败",
+                            "content": "语音识别失败",
                             "message_id":message_id
                         })
                 else:
                     logger.warning(f"收到空音频数据块 (块 #{audio_chunk_count})")
                     await manager.send_json(websocket, {
                         "type": "error",
-                        "message": "收到空音频数据",
+                        "content": "收到空音频数据",
                         "message_id":message_id
                     })
             else:
                 logger.warning(f"未知的语音消息类型: {message_type} (块 #{audio_chunk_count})")
                 await manager.send_json(websocket, {
                     "type": "error",
-                    "message": f"未知的消息类型: {message_type}"
+                    "content": f"未知的消息类型: {message_type}",
+                    "message_id":message_id
                 })
+                # 发送完成信号
+                await manager.send_json(websocket, {"type": "complete", "message_id":message_id})
                  
     except WebSocketDisconnect:
         logger.info(f"语音WebSocket连接断开，会话ID: {session_id}")
@@ -1386,15 +1322,14 @@ if __name__ == "__main__":
     
     # 启动服务器
     logger.info("正在启动uvicorn服务器...")
-    logger.info("服务器配置 - 主机: 0.0.0.0, 端口: 8000, 日志级别: info, 热重载: 启用")
+    logger.info("服务器配置 - 主机: 0.0.0.0, 端口: 8000, 日志级别: info")
     
     try:
         uvicorn.run(
             app,
             host="0.0.0.0",
             port=8000,
-            log_level="info",
-            reload=True
+            log_level="info"
         )
         logger.info("服务器启动成功，正在监听连接...")
     except Exception as e:
