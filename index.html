@@ -475,6 +475,13 @@
             font-size: 14px;
             color: #6c757d;
             background: #f8f9fa;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin: 10px 20px;
+            position: relative;
+            overflow: hidden;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
         
         .status-indicator.connected {
@@ -483,6 +490,46 @@
         
         .status-indicator.disconnected {
             color: #dc3545;
+        }
+        
+        /* 语音活动检测状态指示器特效 */
+        #status2 {
+            background: radial-gradient(circle at center, var(--indicator-color, #f8f9fa) 0%, #f8f9fa 100%);
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+        
+        #status2.connected {
+            background: radial-gradient(circle at center, var(--indicator-color, #28a745) 0%, #f8f9fa 100%);
+            border-color: rgba(40, 167, 69, 0.3);
+            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.2);
+        }
+        
+        #status2.disconnected {
+            background: radial-gradient(circle at center, var(--indicator-color, #dc3545) 0%, #f8f9fa 100%);
+            border-color: rgba(220, 53, 69, 0.3);
+            box-shadow: 0 4px 20px rgba(220, 53, 69, 0.2);
+        }
+        
+        /* 语音活动时的脉冲动画 */
+        #status2.vad-active {
+            animation: vadPulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes vadPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 6px 25px rgba(102, 126, 234, 0.3);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            }
         }
         
         /* 中等屏幕优化 - 针对692px左右宽度 */
@@ -861,6 +908,12 @@
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/bundle.min.js"></script>
     
+    <!-- 颜色插值函数 -->
+    <script type="module">
+        import { interpolateInferno } from "https://cdn.skypack.dev/d3-scale-chromatic@3";
+        window.interpolateInferno = interpolateInferno;
+    </script>
+    
     <script>
         let ws1 = null;
         let ws2 = null;
@@ -934,6 +987,28 @@
                     onSpeechStart: () => {
                         console.log('🎤 检测到语音开始');
                         tab2isRecording = true;
+                    },
+                    onFrameProcessed: (probs, frame) => {
+                        const indicatorColor = interpolateInferno(probs.isSpeech / 2);
+                        document.body.style.setProperty("--indicator-color", indicatorColor);
+                        
+                        // 更新status2的视觉效果
+                        const status2 = document.getElementById('status2');
+                        if (status2) {
+                            // 根据语音概率动态调整视觉效果
+                            const speechProbability = probs.isSpeech;
+                            
+                            // 当检测到语音时添加活动状态
+                            if (speechProbability > 0.3) {
+                                status2.classList.add('vad-active');
+                                // 动态调整背景渐变强度
+                                status2.style.background = `radial-gradient(circle at center, ${indicatorColor} ${speechProbability * 50}%, #f8f9fa 100%)`;
+                            } else {
+                                status2.classList.remove('vad-active');
+                                // 恢复默认渐变
+                                status2.style.background = `radial-gradient(circle at center, var(--indicator-color, #f8f9fa) 0%, #f8f9fa 100%)`;
+                            }
+                        }
                     },
                     onSpeechEnd: (audioData) => {
                         console.log('⏹️ 检测到语音结束');
