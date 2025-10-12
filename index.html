@@ -877,7 +877,6 @@
         
         // 消息状态管理
         let isWaitingForResponse = false; // 是否正在等待AI回复
-        let currentMessageId = null; // 当前处理的消息ID
         let messageQueue = []; // 消息队列（用于处理并发消息）
         
       
@@ -945,16 +944,16 @@
                             // 直接使用VAD工具函数处理音频数据
                             const wavBuffer = vad.utils.encodeWAV(audioData);
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
-                            
+                            const messageId = 'msg_' + Date.now();
                             const voiceMessageElement = createUserVoiceMessageElement(base64);
-                            addVoiceMessage('messages2', voiceMessageElement, 'user');
-                            updateStreamingMessage('messages2', '', 'start', 'user');
+                            addVoiceMessage('messages2', voiceMessageElement, 'user',messageId);
                             
                             // 如果WebSocket连接正常，发送音频数据
                             if (ws2 && ws2.readyState === WebSocket.OPEN) {
                                 ws2.send(JSON.stringify({
-                                    type: 'audio_chunk',
+                                    type: 'audio',
                                     audio_data: base64,
+                                    message_id:messageId,
                                     language: currentLanguage,
                                     tts_engine: document.getElementById('ttsEngine').value
                                 }));
@@ -1203,24 +1202,20 @@
             ws1.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
                 
-                if (data.type === 'text_chunk') {
-                    updateStreamingMessage('messages1', data.content, data.status, 'assistant');
-                } else if (data.type === 'transcription') {
-                    // 更新语音消息的显示内容为转录文本
-                    updateStreamingMessage('messages1', data.text, 'end', 'user');
+                if (data.type === 'text') {
+                    updateStreamingMessage('messages1', data.content, data.status, data.role,data.message_id);
                 } else if (data.type === 'audio') {
-                    const messageElement = createAssistantVoiceMessageElement(data.audio_data);
+                    const messageElement = createAssistantVoiceMessageElement(data.content);
                     // 使用当前消息ID关联助手语音消息到对应的用户消息
-                    addVoiceMessage('messages1', messageElement, 'assistant', currentMessageId);
+                    addVoiceMessage('messages1', messageElement, data.role, data.message_id);
                     // 自动播放语音消息
                     setTimeout(() => {
                         const audioId = messageElement.match(/id="([^"]+)"/)[1];
-                        toggleAudioPlayback(audioId, data.audio_data);
+                        toggleAudioPlayback(audioId, data.content);
                     }, 100);
                 } else if (data.type === 'complete') {
                     // 收到完成信号，重置等待状态
                     isWaitingForResponse = false;
-                    currentMessageId = null;
                     
                     // 启用发送按钮
                     const sendBtn = document.querySelector('.btn-primary');
@@ -1258,19 +1253,16 @@
             ws2.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
                 
-                if (data.type === 'text_chunk') {
-                    updateStreamingMessage('messages2', data.content, data.status, 'assistant');
-                } else if (data.type === 'transcription') {
-                    // 更新语音消息的显示内容为转录文本
-                    updateStreamingMessage('messages2', data.text, 'end', 'user');
+                if (data.type === 'text') {
+                    updateStreamingMessage('messages2', data.content, data.status, data.role,data.message_id);
                 } else if (data.type === 'audio') {
-                    const messageElement = createAssistantVoiceMessageElement(data.audio_data);
+                    const messageElement = createAssistantVoiceMessageElement(data.content);
                     // 使用当前消息ID关联助手语音消息到对应的用户消息
-                    addVoiceMessage('messages2', messageElement, 'assistant', currentMessageId);
+                    addVoiceMessage('messages2', messageElement, data.role, data.message_id);
                     // 自动播放语音消息
                     setTimeout(() => {
                         const audioId = messageElement.match(/id="([^"]+)"/)[1];
-                        toggleAudioPlayback(audioId, data.audio_data);
+                        toggleAudioPlayback(audioId, data.content);
                     }, 100);
                 } else if (data.type === 'complete') {
                    // 收到完成信号可以继续实施录音了
@@ -1442,11 +1434,10 @@
                 const reader = new FileReader();
                 reader.onload = () => {
                     const base64Audio = reader.result.split(',')[1];
-                    
+                    const messageId = 'msg_' + Date.now();
                     // 录制完成后立即显示语音气泡
                     const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
-                    addVoiceMessage('messages1', voiceMessageElement, 'user');
-                    updateStreamingMessage('messages1', '', 'start', 'user');
+                    addVoiceMessage('messages1', voiceMessageElement, 'user',messageId);
                     
                     // 禁用发送按钮并设置等待状态
                     const sendBtn = document.querySelector('.btn-primary');
@@ -1456,7 +1447,7 @@
                     ws1.send(JSON.stringify({
                         type: 'audio',
                         audio_data: base64Audio,
-                        duration: audioBlob.size / 44100, // 估算时长
+                        message_id: messageId, // 估算时长
                         language: currentLanguage,  // 添加语言参数
                         tts_engine: document.getElementById('ttsEngine').value  // 添加TTS引擎参数
                     }));
@@ -1491,7 +1482,7 @@
         // 统一的消息流式更新函数
         let currentStreamMessages = {};
         
-        function updateStreamingMessage(containerId, content, status, messageType = 'assistant') {
+        function updateStreamingMessage(containerId, content, status, messageType,messgaeId) {
             const messagesDiv = document.getElementById(containerId);
             const messageKey = `${containerId}_${messageType}`;
             

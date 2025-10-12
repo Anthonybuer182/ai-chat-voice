@@ -960,8 +960,10 @@ async def websocket_chat(websocket: WebSocket):
             logger.debug("等待接收WebSocket消息...")
             data = await websocket.receive_json()
             message_type = data.get("type")
+            message_id =data.get("message_id")
             logger.debug(f"收到WebSocket消息，类型: {message_type}")
-            
+            await manager.send_json(websocket, {"type": "begin"})
+            logger.info(f"会话开始")
             if message_type == "text":
                 # 处理文本消息
                 user_message = data.get("message", "")
@@ -983,26 +985,32 @@ async def websocket_chat(websocket: WebSocket):
                     full_response = ""
                     # 先发送start状态
                     await manager.send_json(websocket, {
-                        "type": "text_chunk",
+                        "type": "text",
                         "content": "",
-                        "status": "start"
+                        "status": "start",
+                        "role": "assistant",
+                        "message_id":message_id
                     })
                     
                     async for chunk in ai_service.get_chat_response_stream(messages):
                         # 发送continue状态
                         await manager.send_json(websocket, {
-                            "type": "text_chunk",
+                            "type": "text",
                             "content": chunk,
-                            "status": "continue"
+                            "status": "continue",
+                            "role": "assistant",
+                            "message_id":message_id
                         })
                         full_response += chunk
                     
                     # 发送结束状态（如果有内容）
                     if full_response:
                         await manager.send_json(websocket, {
-                            "type": "text_chunk",
+                            "type": "text",
                             "content": "",
-                            "status": "end"
+                            "status": "end",
+                            "role": "assistant",
+                            "message_id":message_id
                         })
                     
                     # 添加完整响应到历史
@@ -1015,20 +1023,29 @@ async def websocket_chat(websocket: WebSocket):
                         if audio_data:
                             await manager.send_json(websocket, {
                                 "type": "audio",
-                                "audio_data": audio_processor.audio_to_base64(audio_data)
+                                "content": audio_processor.audio_to_base64(audio_data),
+                                "status": "end",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                     
-                    # 发送完成信号
-                    await manager.send_json(websocket, {"type": "complete"})
-                    logger.info(f"文本消息响应发送完成，响应长度: {len(full_response)} 字符")
                 else:
                     logger.warning("收到空文本消息")
                     await manager.send_json(websocket, {
+                        "message_id":message_id,
                         "type": "error",
                         "message": "收到空文本消息"
                     })
             
             elif message_type == "audio":
+                # 先发送start状态
+                await manager.send_json(websocket, {
+                            "type": "text",
+                            "content": "",
+                            "status": "start",
+                            "role": "user",
+                            "message_id":message_id
+                        })
                 # 处理音频消息
                 audio_base64 = data.get("audio_data", "")
                 language = data.get("language", "zh")
@@ -1049,8 +1066,11 @@ async def websocket_chat(websocket: WebSocket):
                         logger.info(f"语音识别结果: {transcribed_text}")
                         # 发送转录文本给前端
                         await manager.send_json(websocket, {
-                            "type": "transcription",
-                            "text": transcribed_text
+                            "type": "text",
+                            "content": transcribed_text,
+                            "status": "end",
+                            "role": "user",
+                            "message_id":message_id
                         })
                         
                         # 添加到历史
@@ -1066,25 +1086,32 @@ async def websocket_chat(websocket: WebSocket):
                         full_response = ""
                         # 先发送start状态
                         await manager.send_json(websocket, {
-                            "type": "text_chunk",
+                            "type": "text",
                             "content": "",
-                            "status": "start"
+                            "status": "start",
+                            "role": "assistant",
+                            "message_id":message_id
                         })
+                        
                         async for chunk in ai_service.get_chat_response_stream(messages):
                             # 发送continue状态
                             await manager.send_json(websocket, {
-                                "type": "text_chunk",
+                                "type": "text",
                                 "content": chunk,
-                                "status": "continue"
+                                "status": "continue",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                             full_response += chunk
                         
                         # 发送结束状态（如果有内容）
                         if full_response:
                             await manager.send_json(websocket, {
-                                "type": "text_chunk",
+                                "type": "text",
                                 "content": "",
-                                "status": "end"
+                                "status": "end",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                         
                         # 添加到历史
@@ -1096,7 +1123,10 @@ async def websocket_chat(websocket: WebSocket):
                         if audio_response:
                             await manager.send_json(websocket, {
                                 "type": "audio",
-                                "audio_data": audio_processor.audio_to_base64(audio_response)
+                                "content": audio_processor.audio_to_base64(audio_response),
+                                "status": "end",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                         
                         # 发送完成信号
@@ -1107,13 +1137,15 @@ async def websocket_chat(websocket: WebSocket):
                         logger.warning("语音识别失败")
                         await manager.send_json(websocket, {
                             "type": "error",
-                            "message": "语音识别失败"
+                            "message": "语音识别失败",
+                            "message_id":message_id
                         })
                 else:
                     logger.warning("收到空音频消息")
                     await manager.send_json(websocket, {
                         "type": "error",
-                        "message": "收到空音频消息"
+                        "message": "收到空音频消息",
+                        "message_id":message_id
                     })
             
             elif message_type == "clear":
@@ -1123,15 +1155,19 @@ async def websocket_chat(websocket: WebSocket):
                 
                 await manager.send_json(websocket, {
                     "type": "clear_confirm",
-                    "message": "聊天历史已清空"
+                    "message": "聊天历史已清空",
+                    "message_id":message_id
                 })
                 logger.info("聊天历史清空确认发送完成")
             else:
                 logger.warning(f"未知的消息类型: {message_type}")
                 await manager.send_json(websocket, {
                     "type": "error",
-                    "message": f"未知的消息类型: {message_type}"
+                    "message": f"未知的消息类型: {message_type}",
+                    "message_id":message_id
                 })
+            await manager.send_json(websocket, {"type": "complete","message_id":message_id})
+            logger.info(f"会话开始")
 
     except WebSocketDisconnect:
         logger.info("WebSocket连接断开")
@@ -1166,12 +1202,15 @@ async def websocket_voice(websocket: WebSocket):
             # 接收消息
             logger.debug("等待接收语音WebSocket消息...")
             data = await websocket.receive_json()
+            await manager.send_json(websocket, {"type": "begin"})
+            logger.info(f"会话开始")
             message_type = data.get("type")
+            message_id = data.get("message_id")
             audio_chunk_count += 1
             
             logger.debug(f"收到语音WebSocket消息 #{audio_chunk_count}, 类型: {message_type}")
             
-            if message_type == "audio_chunk":
+            if message_type == "audio":
                 # 前端发送的音频数据块（VAD检测到的语音片段）
                 audio_base64 = data.get("audio_data", "")
                 language = data.get("language", "zh")
@@ -1197,8 +1236,11 @@ async def websocket_voice(websocket: WebSocket):
                         
                         # 发送转录文本
                         await manager.send_json(websocket, {
-                            "type": "transcription",
-                            "text": transcribed_text
+                            "type": "text",
+                            "content": transcribed_text,
+                            "status": "end",
+                            "role": "user",
+                            "message_id":message_id
                         })
                         logger.debug("转录文本发送完成")
                         
@@ -1217,27 +1259,33 @@ async def websocket_voice(websocket: WebSocket):
                         full_response = ""
                         # 先发送start状态
                         await manager.send_json(websocket, {
-                            "type": "text_chunk",
+                            "type": "text",
                             "content": "",
-                            "status": "start"
+                            "status": "start",
+                            "role": "assistant",
+                            "message_id":message_id
                         })
                         logger.debug("流式响应开始状态发送完成")
                         
                         async for chunk in ai_service.get_chat_response_stream(messages):
                             # 发送continue状态
                             await manager.send_json(websocket, {
-                                "type": "text_chunk",
+                                "type": "text",
                                 "content": chunk,
-                                "status": "continue"
+                                "status": "continue",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                             full_response += chunk
                         
                         # 发送结束状态（如果有内容）
                         if full_response:
                             await manager.send_json(websocket, {
-                                "type": "text_chunk",
+                                "type": "text",
                                 "content": "",
-                                "status": "end"
+                                "status": "end",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                         logger.debug("流式响应结束状态发送完成")
                         
@@ -1252,26 +1300,28 @@ async def websocket_voice(websocket: WebSocket):
                         if audio_response:
                             await manager.send_json(websocket, {
                                 "type": "audio",
-                                "audio_data": audio_processor.audio_to_base64(audio_response)
+                                "content": audio_processor.audio_to_base64(audio_response),
+                                "status": "end",
+                                "role": "assistant",
+                                "message_id":message_id
                             })
                             logger.info(f"语音响应发送完成，音频大小: {len(audio_response)} 字节")
                         else:
                             logger.warning("语音合成失败，无法生成音频响应")
                         
-                        # 发送完成信号
-                        await manager.send_json(websocket, {"type": "complete"})
-                        logger.info(f"语音对话处理完成 (块 #{audio_chunk_count})，识别文本长度: {len(transcribed_text)} 字符，响应长度: {len(full_response)} 字符")
                     else:
                         logger.warning(f"语音识别失败或识别文本过短 (块 #{audio_chunk_count})，识别文本: {transcribed_text}")
                         await manager.send_json(websocket, {
                             "type": "error",
-                            "message": "语音识别失败"
+                            "message": "语音识别失败",
+                            "message_id":message_id
                         })
                 else:
                     logger.warning(f"收到空音频数据块 (块 #{audio_chunk_count})")
                     await manager.send_json(websocket, {
                         "type": "error",
-                        "message": "收到空音频数据"
+                        "message": "收到空音频数据",
+                        "message_id":message_id
                     })
             else:
                 logger.warning(f"未知的语音消息类型: {message_type} (块 #{audio_chunk_count})")
