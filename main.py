@@ -45,6 +45,7 @@ from faster_whisper import WhisperModel
 import logging
 from dotenv import load_dotenv
 import requests
+import aiohttp
 
 # 配置日志系统
 logging.basicConfig(
@@ -787,27 +788,22 @@ class AIService:
                 logger.debug(f"EdgeTTS使用语音: {voice}")
                 communicate = edge_tts.Communicate(text, voice)
                 
-                # 创建临时文件
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                    tmp_path = tmp.name
+                # 使用流式输出收集音频数据 <mcreference link="https://wenku.csdn.net/answer/5ew05g80pe" index="1">1</mcreference>
+                audio_chunks = []
                 
-                # 设置超时并保存音频
                 try:
-                    await asyncio.wait_for(communicate.save(tmp_path), timeout=30.0)
-                    logger.debug("EdgeTTS音频保存完成")
+                    # 使用stream()方法进行流式处理
+                    async for chunk in communicate.stream():
+                        if chunk["type"] == "audio":
+                            audio_chunks.append(chunk["data"])
+                    
+                    # 合并所有音频块
+                    audio_data = b''.join(audio_chunks)
+                    
+                    logger.debug("EdgeTTS流式音频合成完成")
                 except asyncio.TimeoutError:
-                    logger.warning(f"EdgeTTS超时 (第 {attempt + 1}/{max_retries} 次尝试)")
+                    logger.warning(f"EdgeTTS流式处理超时 (第 {attempt + 1}/{max_retries} 次尝试)")
                     continue
-                
-                # 读取音频数据
-                with open(tmp_path, 'rb') as f:
-                    audio_data = f.read()
-                
-                # 清理临时文件
-                try:
-                    os.unlink(tmp_path)
-                except Exception as e:
-                    logger.warning(f"删除EdgeTTS临时文件失败: {str(e)}")
                 
                 # 检查音频数据是否有效
                 if len(audio_data) > 100:  # 确保有足够的音频数据
@@ -823,13 +819,6 @@ class AIService:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)  # 等待2秒后重试
                     logger.debug("等待2秒后重试EdgeTTS...")
-                
-                # 清理临时文件
-                try:
-                    if 'tmp_path' in locals() and os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
-                except Exception as e:
-                    logger.warning(f"清理EdgeTTS临时文件失败: {str(e)}")
         
         logger.error(f"EdgeTTS所有 {max_retries} 次尝试都失败，回退到gTTS")
         return await self._gtts_tts(text, language, max_retries)  # 失败时回退到gTTS
@@ -913,8 +902,8 @@ class AIService:
         # 重试机制 - 立即重试，无等待
         for attempt in range(max_retries):
             try:
-                # 使用同步HTTP请求
-                import requests
+                # 使用异步HTTP请求支持流式输出
+                import aiohttp
                 
                 url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
                 headers = {
@@ -934,23 +923,30 @@ class AIService:
                     }
                 }
                 
-                # 同步请求，5秒超时
-                response = requests.post(url, json=data, headers=headers, timeout=5.0)
-                
-                if response.status_code == 200:
-                    logger.info(f"ElevenLabs TTS成功 (尝试 {attempt + 1}/{max_retries})")
-                    return response.content
-                else:
-                    logger.warning(f"ElevenLabs API错误 (尝试 {attempt + 1}/{max_retries}): {response.status_code} - {response.text[:200]}")
-                    # 立即重试下一次
-                    continue
+                # 异步请求，支持流式输出
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=data, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                        if response.status == 200:
+                            # 使用aiter_bytes()进行流式处理 <mcreference link="https://blog.51cto.com/u_16213698/14242933" index="2">2</mcreference>
+                            audio_chunks = []
+                            async for chunk in response.content.iter_chunked(1024):  # 每次读取1KB
+                                audio_chunks.append(chunk)
+                            
+                            audio_data = b''.join(audio_chunks)
+                            logger.info(f"ElevenLabs TTS成功 (尝试 {attempt + 1}/{max_retries})")
+                            return audio_data
+                        else:
+                            error_text = await response.text()
+                            logger.warning(f"ElevenLabs API错误 (尝试 {attempt + 1}/{max_retries}): {response.status} - {error_text[:200]}")
+                            # 立即重试下一次
+                            continue
                     
-            except requests.Timeout:
+            except asyncio.TimeoutError:
                 logger.warning(f"ElevenLabs TTS超时 (尝试 {attempt + 1}/{max_retries})")
                 # 立即重试下一次
                 continue
                 
-            except requests.RequestException as e:
+            except aiohttp.ClientError as e:
                 logger.error(f"ElevenLabs网络错误 (尝试 {attempt + 1}/{max_retries}): {e}")
                 # 立即重试下一次
                 continue
