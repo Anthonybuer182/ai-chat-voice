@@ -964,7 +964,7 @@ class ResponseHandler:
     - 提供简洁的接口供WebSocket端点调用
     """
     
-    def __init__(self, manager, audio_processor, ai_service):
+    def __init__(self, manager: ConnectionManager, audio_processor: AudioProcessor, ai_service: AIService):
         """
         初始化响应处理器
         
@@ -982,13 +982,6 @@ class ResponseHandler:
     async def handle_ai_response(self, websocket, session_id, user_message, language, message_id, tts_engine="gtts"):
         """
         处理完整的AI响应流程，包括：
-        - 发送start状态消息
-        - 添加用户消息到历史
-        - 构建AI消息列表
-        - 流式获取AI响应
-        - 发送文本和TTS音频
-        - 添加AI响应到历史
-        - 发送end状态消息
         
         Args:
             websocket: WebSocket连接对象
@@ -1108,7 +1101,6 @@ async def websocket_chat(websocket: WebSocket):
     支持的消息类型:
     - text: 文本消息，直接获取AI响应
     - audio: 音频消息，先进行语音识别再获取AI响应
-    - clear: 清空指定会话的聊天历史
     """
     session_id = f"chat_{id(websocket)}"
     logger.info(f"新的聊天WebSocket连接建立，客户端: {websocket.client}")
@@ -1215,40 +1207,10 @@ async def websocket_chat(websocket: WebSocket):
         logger.error(f"聊天WebSocket错误: {str(e)}")
         manager.disconnect(websocket, "chat")
 
-
-
-# 健康检查
-@app.get("/health")
-async def health_check():
-    """
-    健康检查端点 - 检查服务器状态和连接信息
-    
-    Returns:
-        dict: 包含服务器状态、时间戳和连接统计信息
-    """
-    logger.debug("健康检查端点被调用")
-    
-    health_status = {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "connections": {
-            "chat": len(manager.active_connections["chat"])
-        }
-    }
-    
-    logger.info(f"健康检查完成，活跃连接数 - 聊天: {health_status['connections']['chat']}")
-    return health_status
-
 # 主函数
 if __name__ == "__main__":
     """
     应用程序主入口点
-    
-    启动流程:
-    1. 检查HTML文件是否存在
-    2. 配置并启动uvicorn服务器
-    3. 监听0.0.0.0:8000端口
-    4. 启用热重载功能
     """
     import uvicorn
     
