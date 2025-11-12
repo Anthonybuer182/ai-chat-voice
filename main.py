@@ -207,7 +207,16 @@ class ConnectionManager:
         """
         try:
             await websocket.send_json(data)
-            logger.info(f"发送JSON数据: {data} ")
+
+            if data.get("type") == "audio":
+                # 音频消息：创建副本，将content替换为content_length，其他字段保持不变
+                log_data = data.copy()
+                content_length = len(data.get("content", "")) if data.get("content") else 0
+                log_data["content"] = content_length
+                logger.info(f"发送JSON数据: {log_data} ")
+            else:
+                # 其他消息：正常打印完整数据
+                logger.info(f"发送JSON数据: {data} ")
         except Exception as e:
             logger.error(f"发送JSON数据失败: {str(e)}")
             raise
@@ -541,8 +550,6 @@ class AIService:
             str: 流式响应的文本块
         """
         try:
-            logger.info(f"开始调用流式API，消息数量: {len(messages)}")
-            
             response = await client.chat.completions.create(
                 model=config.MODEL,
                 messages=messages,
