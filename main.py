@@ -1001,37 +1001,32 @@ async def websocket_chat(websocket: WebSocket):
             data = await websocket.receive_json()
             message_type = data.get("type")
             message_id = data.get("message_id")
-            logger.debug(f"收到WebSocket消息，类型: {message_type}")
-            await manager.send_json(websocket, {"type": "begin"})
-            logger.info(f"会话开始")
+            language = data.get("language", "zh")
+            logger.info(f"WebSocket消息，会话ID: {session_id}, 语言: {language}, 消息ID: {message_id}, 消息类型: {message_type}")
             if message_type == "text":
                 # 处理文本消息
                 user_message = data.get("message", "")
-                language = data.get("language", "zh")
-                
-                logger.info(f"处理文本消息，会话ID: {session_id}, 语言: {language}, 文本长度: {len(user_message)} 字符")
-                
+                logger.info(f"文本消息：{user_message}")
                 if user_message:
+                    logger.info(f"发送start消息")
+                    await manager.send_json(websocket, {
+                        "status": "start",
+                        "role": "assistant",
+                        "message_id":message_id,
+                        "timestamp": datetime.now().timestamp()
+                    })
+
                     # 添加到历史
                     chat_history.add_message(session_id, "user", user_message)
                     
                     # 获取AI响应（流式）
                     messages = [
                         {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
-                        *chat_history.get_history(session_id)
+                         *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
                     ]
+                    logger.info(f"LLM入参：{messages}")
                      # 发送流式响应（按句子处理TTS）
                     full_response = ""
-                    # 先发送start状态
-                    await manager.send_json(websocket, {
-                        "type": "text",
-                        "content": "",
-                        "status": "start",
-                        "role": "assistant",
-                        "message_id":message_id,
-                        "timestamp": datetime.now().timestamp()
-                    })
-                    
                     async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence_tts(messages, language):
                         # 发送文本内容
                         if chunk:
@@ -1045,8 +1040,9 @@ async def websocket_chat(websocket: WebSocket):
                                 "message_id":message_id,
                                 "timestamp": datetime.now().timestamp()
                             })
+                            logger.info(f"LLM出参，chunk: {chunk}")
                             if sentence:
-                                logger.info(f"处理句子: {sentence}")
+                                logger.info(f"LLM出参，sentence: {sentence}")
                                 tts_engine = data.get("tts_engine", "gtts")
                                 audio_task = asyncio.create_task(
                                     ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
@@ -1056,10 +1052,12 @@ async def websocket_chat(websocket: WebSocket):
                                 async def send_audio_when_ready(task):
                                     try:
                                         audio_data = await asyncio.wait_for(task, timeout=30.0)
+                                        logger.info(f"TTS生成音频数据，长度: {len(audio_data)} 字节")   
                                         if audio_data:
                                             await manager.send_json(websocket, {
                                                 "type": "audio",
                                                 "content": audio_processor.audio_to_base64(audio_data),
+                                                "status": "continue",
                                                 "role": "assistant",
                                                 "message_id": message_id,
                                                 "timestamp": datetime.now().timestamp()
@@ -1072,24 +1070,11 @@ async def websocket_chat(websocket: WebSocket):
                                 
                                 # 启动异步任务，不等待完成
                                 asyncio.create_task(send_audio_when_ready(audio_task))
-                        
-                    
-                    # 发送文本结束状态
-                    await manager.send_json(websocket, {
-                        "type": "text",
-                        "content": "",
-                        "status": "end",
-                        "role": "assistant",
-                        "message_id":message_id
-                    })
                     
                     # 添加完整响应到历史
                     chat_history.add_message(session_id, "assistant", full_response)
-                    
-                    # 发送音频结束状态（不等待所有TTS完成）
+                    logger.info(f"LLM出参，full_response: {full_response}")
                     await manager.send_json(websocket, {
-                        "type": "audio",
-                        "content": "",
                         "status": "end",
                         "role": "assistant",
                         "message_id":message_id
@@ -1106,15 +1091,12 @@ async def websocket_chat(websocket: WebSocket):
             elif message_type == "audio":
                 # 处理音频消息
                 audio_base64 = data.get("audio_data", "")
-                language = data.get("language", "zh")
                 
-                logger.info(f"处理音频消息，会话ID: {session_id}, 语言: {language}, 音频数据大小: {len(audio_base64)} 字节")
+                logger.info(f"音频消息数据大小: {len(audio_base64)} 字节")
                 
                 if audio_base64:
-                     # 先发送start状态
+                    logger.info(f"发送start消息")
                     await manager.send_json(websocket, {
-                        "type": "text",
-                        "content": "",
                         "status": "start",
                         "role": "user",
                         "message_id":message_id
@@ -1128,12 +1110,12 @@ async def websocket_chat(websocket: WebSocket):
                     os.unlink(audio_file)
                     
                     if transcribed_text and len(transcribed_text.strip()) > 1:
-                        logger.info(f"语音识别结果: {transcribed_text}")
+                        logger.info(f"stt语音转文本: {transcribed_text}")
                         # 发送转录文本给前端
                         await manager.send_json(websocket, {
                             "type": "text",
                             "content": transcribed_text,
-                            "status": "end",
+                            "status": "continue",
                             "role": "user",
                             "message_id":message_id
                         })
@@ -1149,17 +1131,6 @@ async def websocket_chat(websocket: WebSocket):
                         
                         # 发送流式响应（按句子处理TTS）
                         full_response = ""
-                        
-                        # 先发送start状态
-                        await manager.send_json(websocket, {
-                            "type": "text",
-                            "content": "",
-                            "status": "start",
-                            "role": "assistant",
-                            "message_id":message_id,
-                            "timestamp": datetime.now().timestamp()
-                        })
-                        
                         async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence_tts(messages, language):
                             # 发送文本内容
                             if chunk:
@@ -1177,7 +1148,6 @@ async def websocket_chat(websocket: WebSocket):
                                 audio_task = asyncio.create_task(
                                     ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
                                 )
-                                
                                 # 创建任务完成后的回调函数
                                 async def send_audio_when_ready(task):
                                     try:
@@ -1287,6 +1257,7 @@ async def websocket_voice(websocket: WebSocket):
             logger.info(f"会话开始")
             message_type = data.get("type")
             message_id = data.get("message_id")
+            language = data.get("language", "zh")
             audio_chunk_count += 1
             
             logger.debug(f"收到语音WebSocket消息 #{audio_chunk_count}, 类型: {message_type}")
@@ -1294,7 +1265,7 @@ async def websocket_voice(websocket: WebSocket):
             if message_type == "audio":
                 # 前端发送的音频数据块（VAD检测到的语音片段）
                 audio_base64 = data.get("audio_data", "")
-                language = data.get("language", "zh")
+
                 
                 logger.info(f"处理音频数据块 #{audio_chunk_count}, 语言: {language}, 数据大小: {len(audio_base64)} 字节")
                 
