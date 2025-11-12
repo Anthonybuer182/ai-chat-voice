@@ -1550,22 +1550,21 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 // 生成消息ID用于关联回复
                 const messageId = 'msg_' + Date.now();
-                console.log(`发送文本消息，message_id: ${messageId}`);
-                
                 // 发送消息到后端
-                ws.send(JSON.stringify({
+                const messageData = {
                     type: "text",
                     message: message,
                     message_id: messageId,  // 添加消息ID用于关联
                     language: currentLanguage,
                     tts_engine: document.getElementById('ttsEngine').value
                     // 移除mode字段，后端不需要处理模式切换
-                }));
-                console.log('消息已发送到后端');
+                };
+                ws.send(JSON.stringify(messageData));
+                console.log('WS消息发送:', messageData);
                 
                 // 添加用户消息，并记录消息ID
                 addMessage('messages1', message, 'user', messageId);
-                console.log('用户消息已添加到界面');
+                console.log(`添用户消息已添加到聊天页面，message_id: ${messageId}, message: ${message}`);
                 
                 // 清空输入框并聚焦
                 textInput.value = '';
