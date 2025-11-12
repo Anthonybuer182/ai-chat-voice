@@ -953,8 +953,145 @@ class AIService:
             logger.error(f"Whisper error: {e}")
             return ""
 
+# 响应处理器类
+class ResponseHandler:
+    """
+    响应处理器 - 封装文本和语音发送的重复逻辑
+    
+    功能：
+    - 统一处理AI响应的文本流式发送
+    - 统一处理TTS音频的异步生成和发送
+    - 提供简洁的接口供WebSocket端点调用
+    """
+    
+    def __init__(self, manager, audio_processor, ai_service):
+        """
+        初始化响应处理器
+        
+        Args:
+            manager: WebSocket连接管理器
+            audio_processor: 音频处理器实例
+            ai_service: AI服务实例
+        """
+        self.manager = manager
+        self.audio_processor = audio_processor
+        self.ai_service = ai_service
+        logger.info("响应处理器初始化完成")
+    
+    @log_performance
+    async def handle_ai_response(self, websocket, session_id, user_message, language, message_id, tts_engine="gtts"):
+        """
+        处理完整的AI响应流程，包括：
+        - 发送start状态消息
+        - 添加用户消息到历史
+        - 构建AI消息列表
+        - 流式获取AI响应
+        - 发送文本和TTS音频
+        - 添加AI响应到历史
+        - 发送end状态消息
+        
+        Args:
+            websocket: WebSocket连接对象
+            session_id: 会话ID
+            user_message: 用户消息内容
+            language: 语言代码
+            message_id: 消息ID
+            tts_engine: TTS引擎名称
+            
+        Returns:
+            str: 完整的AI响应文本
+        """
+        # 1. 发送assistant的start状态消息
+        await self.manager.send_json(websocket, {
+            "status": "start",
+            "role": "assistant",
+            "message_id": message_id,
+            "timestamp": datetime.now().timestamp()
+        })
+        
+        # 2. 添加用户消息到历史
+        chat_history.add_message(session_id, "user", user_message)
+        
+        # 3. 构建AI消息列表
+        messages = [
+            {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
+            *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
+        ]
+        logger.info(f"LLM入参：{messages}")
+        
+        # 4. 流式获取AI响应
+        full_response = ""
+        async for chunk, sentence in self.ai_service.get_chat_response_stream_with_sentence(messages, language):
+            # 发送文本内容
+            if chunk:
+                full_response += chunk
+                await self._send_text_chunk(websocket, chunk, message_id)
+            
+            # 处理句子级别的TTS
+            if sentence:
+                await self._handle_sentence_tts(websocket, sentence, tts_engine, language, message_id)
+        
+        # 5. 添加AI响应到历史
+        chat_history.add_message(session_id, "assistant", full_response)
+        logger.info(f"LLM出参，full_response: {full_response}")
+        
+        # 6. 发送end状态消息
+        await self.manager.send_json(websocket, {
+            "status": "end",
+            "role": "assistant",
+            "message_id": message_id
+        })
+        
+        return full_response
+    
+    async def _send_text_chunk(self, websocket, chunk, message_id):
+        """发送文本块到前端"""
+        await self.manager.send_json(websocket, {
+            "type": "text",
+            "content": chunk,
+            "status": "continue",
+            "role": "assistant",
+            "message_id": message_id,
+            "timestamp": datetime.now().timestamp()
+        })
+        logger.info(f"LLM出参，chunk: {chunk}")
+    
+    async def _handle_sentence_tts(self, websocket, sentence, tts_engine, language, message_id):
+        """处理句子级别的TTS音频生成和发送"""
+        logger.info(f"LLM出参，sentence: {sentence}")
+        
+        # 创建TTS任务
+        audio_task = asyncio.create_task(
+            self.ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
+        )
+        
+        # 创建任务完成后的回调函数
+        async def send_audio_when_ready(task):
+            try:
+                audio_data = await asyncio.wait_for(task, timeout=30.0)
+                logger.info(f"TTS生成音频数据，长度: {len(audio_data)} 字节")   
+                if audio_data:
+                    await self.manager.send_json(websocket, {
+                        "type": "audio",
+                        "content": self.audio_processor.audio_to_base64(audio_data),
+                        "status": "continue",
+                        "role": "assistant",
+                        "message_id": message_id,
+                        "timestamp": datetime.now().timestamp()
+                    })
+            except asyncio.TimeoutError:
+                logger.warning(f"句子TTS超时: {sentence}")
+            except Exception as e:
+                logger.error(f"句子TTS失败: {sentence} 错误: {str(e)}")
+        
+        # 启动异步任务，不等待完成
+        asyncio.create_task(send_audio_when_ready(audio_task))
+
 # 创建AIService实例
 ai_service = AIService()
+
+# 创建ResponseHandler实例
+response_handler = ResponseHandler(manager, audio_processor, ai_service)
 
 # 路由
 @app.get("/")
@@ -985,83 +1122,17 @@ async def websocket_chat(websocket: WebSocket):
             message_type = data.get("type")
             message_id = data.get("message_id")
             language = data.get("language", "zh")
+            tts_engine = data.get("tts_engine", "gtts")
             logger.info(f"WebSocket消息，会话ID: {session_id}, 语言: {language}, 消息ID: {message_id}, 消息类型: {message_type}")
             if message_type == "text":
                 # 处理文本消息
                 user_message = data.get("message", "")
                 logger.info(f"文本消息：{user_message}")
                 if user_message:
-                    logger.info(f"发送start消息")
-                    await manager.send_json(websocket, {
-                        "status": "start",
-                        "role": "assistant",
-                        "message_id":message_id,
-                        "timestamp": datetime.now().timestamp()
-                    })
-
-                    # 添加到历史
-                    chat_history.add_message(session_id, "user", user_message)
-                    
-                    # 获取AI响应（流式）
-                    messages = [
-                        {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
-                         *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
-                    ]
-                    logger.info(f"LLM入参：{messages}")
-                     # 发送流式响应（按句子处理TTS）
-                    full_response = ""
-                    async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence(messages, language):
-                        # 发送文本内容
-                        if chunk:
-                             # 发送流式响应（按句子处理TTS）
-                            full_response += chunk
-                            await manager.send_json(websocket, {
-                                "type": "text",
-                                "content": chunk,
-                                "status": "continue",
-                                "role": "assistant",
-                                "message_id":message_id,
-                                "timestamp": datetime.now().timestamp()
-                            })
-                            logger.info(f"LLM出参，chunk: {chunk}")
-                            if sentence:
-                                logger.info(f"LLM出参，sentence: {sentence}")
-                                tts_engine = data.get("tts_engine", "gtts")
-                                audio_task = asyncio.create_task(
-                                    ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
-                                )
-                                
-                                # 创建任务完成后的回调函数
-                                async def send_audio_when_ready(task):
-                                    try:
-                                        audio_data = await asyncio.wait_for(task, timeout=30.0)
-                                        logger.info(f"TTS生成音频数据，长度: {len(audio_data)} 字节")   
-                                        if audio_data:
-                                            await manager.send_json(websocket, {
-                                                "type": "audio",
-                                                "content": audio_processor.audio_to_base64(audio_data),
-                                                "status": "continue",
-                                                "role": "assistant",
-                                                "message_id": message_id,
-                                                "timestamp": datetime.now().timestamp()
-
-                                            })
-                                    except asyncio.TimeoutError:
-                                        logger.warning(f"句子TTS超时: {sentence}")
-                                    except Exception as e:
-                                        logger.error(f"句子TTS失败,: {sentence} 错误: {str(e)}")
-                                
-                                # 启动异步任务，不等待完成
-                                asyncio.create_task(send_audio_when_ready(audio_task))
-                    
-                    # 添加完整响应到历史
-                    chat_history.add_message(session_id, "assistant", full_response)
-                    logger.info(f"LLM出参，full_response: {full_response}")
-                    await manager.send_json(websocket, {
-                        "status": "end",
-                        "role": "assistant",
-                        "message_id":message_id
-                    })
+                    # 使用ResponseHandler处理完整的AI响应流程
+                    await response_handler.handle_ai_response(
+                        websocket, session_id, user_message, language, message_id, tts_engine
+                    )
                     
                 else:
                     logger.warning("收到空文本消息")
@@ -1103,78 +1174,10 @@ async def websocket_chat(websocket: WebSocket):
                             "message_id":message_id
                         })
                         
-                        # 添加到历史
-                        chat_history.add_message(session_id, "user", transcribed_text)
-                        
-                        # 获取AI响应
-                        messages = [
-                            {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
-                            *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
-                        ]
-                        
-                        # 发送流式响应（按句子处理TTS）
-                        full_response = ""
-                        async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence(messages, language):
-                            # 发送文本内容
-                            if chunk:
-                                full_response += chunk
-                                await manager.send_json(websocket, {
-                                    "type": "text",
-                                    "content": chunk,
-                                    "status": "continue",
-                                    "role": "assistant",
-                                    "message_id":message_id
-                                })
-
-                            if sentence:
-                                tts_engine = data.get("tts_engine", "gtts")
-                                audio_task = asyncio.create_task(
-                                    ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
-                                )
-                                # 创建任务完成后的回调函数
-                                async def send_audio_when_ready(task):
-                                    try:
-                                        audio_data = await asyncio.wait_for(task, timeout=30.0)
-                                        if audio_data:
-                                            await manager.send_json(websocket, {
-                                                "type": "audio",
-                                                "content": audio_processor.audio_to_base64(audio_data),
-                                                "role": "assistant",
-                                                "message_id": message_id,
-                                                "timestamp": datetime.now().timestamp()
-                                            })
-                                    except asyncio.TimeoutError:
-                                        logger.warning(f"句子TTS超时 : {sentence}")
-                                    except Exception as e:
-                                        logger.error(f"句子TTS失败: {sentence}, 错误: {str(e)}")
-                                
-                                # 启动异步任务，不等待完成
-                                asyncio.create_task(send_audio_when_ready(audio_task))
-    
-                        # 发送文本结束状态
-                        await manager.send_json(websocket, {
-                            "type": "text",
-                            "content": "",
-                            "status": "end",
-                            "role": "assistant",
-                            "message_id":message_id,
-                            "timestamp": datetime.now().timestamp()
-                        })
-                        
-                        # 添加到历史
-                        chat_history.add_message(session_id, "assistant", full_response)
-                        
-                        # 发送音频结束状态（不等待所有TTS完成）
-                        await manager.send_json(websocket, {
-                            "type": "audio",
-                            "content": "",
-                            "status": "end",
-                            "role": "assistant",
-                            "message_id":message_id,
-                            "timestamp": datetime.now().timestamp()
-                        })
-                        
-                        logger.info(f"音频消息响应发送完成，识别文本长度: {len(transcribed_text)} 字符，响应长度: {len(full_response)} 字符")
+                        # 使用ResponseHandler处理完整的AI响应流程
+                        await response_handler.handle_ai_response(
+                            websocket, session_id, transcribed_text, language, message_id, tts_engine
+                        )
                     else:
                         # 语音识别失败
                         logger.warning("语音识别失败")
