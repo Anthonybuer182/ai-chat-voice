@@ -555,17 +555,10 @@ class AIService:
                 temperature=0.7
             )
             
-            chunk_count = 0
-            total_length = 0
-            
             async for chunk in response:
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
-                    chunk_count += 1
-                    total_length += len(content)
                     yield content
-            
-            logger.info(f"流式API调用完成，共 {chunk_count} 个数据块，总长度: {total_length} 字符")
         
         except Exception as e:
             logger.error(f"流式API调用失败: {str(e)}")
@@ -597,15 +590,9 @@ class AIService:
                 temperature=0.7
             )
             
-            chunk_count = 0
-            total_length = 0
-            
             async for chunk in response:
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
-                    chunk_count += 1
-                    total_length += len(content)
-                    
                     # 按字符处理，检测句子边界
                     completed_sentence = self.sentence_processor.process_characters(content, language)
                     
@@ -615,12 +602,10 @@ class AIService:
             if self.sentence_processor.buffer.strip():
                 # 如果有剩余内容，作为最后一个句子返回
                 remaining_sentence = self.sentence_processor.buffer.strip()
-                logger.debug(f"流式响应结束，返回剩余内容: {remaining_sentence}")
+                logger.debug(f"LLM出参，remaining_sentence：{remaining_sentence}")
                 yield ("", remaining_sentence)
                 # 清空缓冲区
                 self.sentence_processor.clear_buffer()
-            
-            logger.info(f"流式API调用完成（句子TTS模式），共 {chunk_count} 个数据块，总长度: {total_length} 字符")
             
         except Exception as e:
             logger.error(f"流式API调用失败（句子TTS模式）: {str(e)}")
