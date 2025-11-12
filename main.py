@@ -565,19 +565,19 @@ class AIService:
             yield "抱歉，我遇到了一些问题。请稍后再试。"
     
     @log_performance
-    async def get_chat_response_stream_with_sentence_tts(self, messages: List[dict], language: str = "zh") -> AsyncGenerator[tuple, None]:
+    async def get_chat_response_stream_with_sentence(self, messages: List[dict], language: str = "zh") -> AsyncGenerator[tuple, None]:
         """
-        获取聊天API的流式响应，并按句子处理TTS
+        获取聊天API的流式响应，并按句子处理
         
         Args:
             messages: 聊天消息列表，包含角色和内容
             language: 语言代码，默认中文"zh"
             
         Yields:
-            tuple: (文本内容, 句子列表) 的元组
+            tuple: (文本内容, 单个句子) 的元组
         """
         try:
-            logger.info(f"开始调用流式API（句子TTS模式），消息数量: {len(messages)}, 语言: {language}")
+            logger.info(f"开始调用流式API，消息数量: {len(messages)}, 语言: {language}")
             
             # 清空句子处理器的缓冲区
             self.sentence_processor.clear_buffer()
@@ -608,7 +608,7 @@ class AIService:
                 self.sentence_processor.clear_buffer()
             
         except Exception as e:
-            logger.error(f"流式API调用失败（句子TTS模式）: {str(e)}")
+            logger.error(f"流式API调用失败: {str(e)}")
             # 发生错误时清空缓冲区
             self.sentence_processor.clear_buffer()
             yield ("抱歉，我遇到了一些问题。请稍后再试。", None)
@@ -1012,7 +1012,7 @@ async def websocket_chat(websocket: WebSocket):
                     logger.info(f"LLM入参：{messages}")
                      # 发送流式响应（按句子处理TTS）
                     full_response = ""
-                    async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence_tts(messages, language):
+                    async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence(messages, language):
                         # 发送文本内容
                         if chunk:
                              # 发送流式响应（按句子处理TTS）
@@ -1116,7 +1116,7 @@ async def websocket_chat(websocket: WebSocket):
                         
                         # 发送流式响应（按句子处理TTS）
                         full_response = ""
-                        async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence_tts(messages, language):
+                        async for chunk, sentence in ai_service.get_chat_response_stream_with_sentence(messages, language):
                             # 发送文本内容
                             if chunk:
                                 full_response += chunk
@@ -1315,7 +1315,7 @@ async def websocket_voice(websocket: WebSocket):
                         })
                         logger.debug("流式响应开始状态发送完成")
                         
-                        async for chunk, sentences, status in ai_service.get_chat_response_stream_with_sentence_tts(messages, language):
+                        async for chunk, sentences, status in ai_service.get_chat_response_stream_with_sentence(messages, language):
                             # 发送文本内容
                             if chunk:
                                 await manager.send_json(websocket, {
