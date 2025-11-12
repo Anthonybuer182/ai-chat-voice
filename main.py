@@ -68,28 +68,28 @@ def log_performance(func):
     """
     async def async_wrapper(*args, **kwargs):
         start_time = time.time()
-        logger.info(f"开始执行函数: {func.__name__}")
+        # logger.info(f"开始执行函数: {func.__name__}")
         try:
             result = await func(*args, **kwargs)
             execution_time = time.time() - start_time
-            logger.info(f"函数 {func.__name__} 执行完成，耗时: {execution_time:.3f}秒")
+            # logger.info(f"函数 {func.__name__} 执行完成，耗时: {execution_time:.3f}秒")
             return result
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(f"函数 {func.__name__} 执行失败，耗时: {execution_time:.3f}秒，错误: {str(e)}")
+            # logger.error(f"函数 {func.__name__} 执行失败，耗时: {execution_time:.3f}秒，错误: {str(e)}")
             raise
     
     def sync_wrapper(*args, **kwargs):
         start_time = time.time()
-        logger.info(f"开始执行函数: {func.__name__}")
+        # logger.info(f"开始执行函数: {func.__name__}")
         try:
             result = func(*args, **kwargs)
             execution_time = time.time() - start_time
-            logger.info(f"函数 {func.__name__} 执行完成，耗时: {execution_time:.3f}秒")
+            # logger.info(f"函数 {func.__name__} 执行完成，耗时: {execution_time:.3f}秒")
             return result
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(f"函数 {func.__name__} 执行失败，耗时: {execution_time:.3f}秒，错误: {str(e)}")
+            # logger.error(f"函数 {func.__name__} 执行失败，耗时: {execution_time:.3f}秒，错误: {str(e)}")
             raise
     
     return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
@@ -207,7 +207,7 @@ class ConnectionManager:
         """
         try:
             await websocket.send_json(data)
-            logger.debug(f"成功发送JSON数据到连接: {len(str(data))} 字节")
+            logger.info(f"发送JSON数据: {data} ")
         except Exception as e:
             logger.error(f"发送JSON数据失败: {str(e)}")
             raise
@@ -230,7 +230,7 @@ class ChatHistory:
     - max_history: 每个会话的最大历史记录数
     """
     
-    def __init__(self, max_history: int = 10):
+    def __init__(self, max_history: int = 50):
         """
         初始化聊天历史管理器
         
@@ -253,7 +253,6 @@ class ChatHistory:
         """
         if session_id not in self.histories:
             self.histories[session_id] = []
-            logger.info(f"创建新的会话历史: {session_id}")
         
         # 添加消息
         message = {
@@ -283,7 +282,6 @@ class ChatHistory:
             List[dict]: 会话历史记录列表
         """
         history = self.histories.get(session_id, [])
-        logger.debug(f"获取会话 {session_id} 的历史记录，共 {len(history)} 条")
         return history
     
     @log_performance
@@ -1008,7 +1006,7 @@ class ResponseHandler:
         # 3. 构建AI消息列表
         messages = [
             {"role": "system", "content": config.SYSTEM_PROMPTS.get(language, config.SYSTEM_PROMPTS["zh"])["chat"]},
-            *chat_history.get_history(session_id)[-6:]  # 只保留最近的3轮对话
+            *chat_history.get_history(session_id)
         ]
         logger.info(f"LLM入参：{messages}")
         
@@ -1062,7 +1060,6 @@ class ResponseHandler:
         async def send_audio_when_ready(task):
             try:
                 audio_data = await asyncio.wait_for(task, timeout=30.0)
-                logger.info(f"TTS生成音频数据，长度: {len(audio_data)} 字节")   
                 if audio_data:
                     await self.manager.send_json(websocket, {
                         "type": "audio",
@@ -1196,7 +1193,6 @@ async def websocket_chat(websocket: WebSocket):
                     "timestamp": datetime.now().timestamp()
                 })
             await manager.send_json(websocket, {"type": "complete","message_id":message_id,"timestamp": datetime.now().timestamp()})
-            logger.info(f"会话 {message_id} 结束")
 
     except WebSocketDisconnect:
         logger.info(f"聊天WebSocket连接断开，会话ID: {session_id}")
