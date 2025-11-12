@@ -327,87 +327,33 @@ class SentenceProcessor:
         logger.info("句子处理器初始化完成")
     
     @log_performance
-    def process_characters(self, text: str, language: str = "zh") -> tuple:
+    def process_characters(self, text: str, language: str = "zh") -> str:
         """
-        按字符处理文本流，累积token并检测句子边界
+        按字符处理文本流，遇到标点符号就拆分成句子
         
         Args:
             text: 流式返回的单个token文本
             language: 语言代码，默认中文"zh"
             
         Returns:
-            tuple: 包含(完整句子内容, 优先级)的元组，如果没有完整句子则返回None
+            str: 如果检测到完整句子则返回句子内容，否则返回None
         """
         # 将当前token添加到缓冲区
         self.buffer += text
         
-        # 获取当前语言的句子分隔符
+        # 使用sentence_delimiters中的标点符号
         delimiters = self.sentence_delimiters.get(language, self.sentence_delimiters['zh'])
         
-        # 检测句子边界：查找所有标点符号的位置
-        completed_sentences = []
+        # 检查缓冲区中是否包含任何标点符号
+        punctuation_found = any(delimiter in self.buffer for delimiter in delimiters)
         
-        # 遍历缓冲区，查找完整的句子
-        while True:
-            # 查找第一个标点符号的位置
-            first_delimiter_pos = -1
-            first_delimiter = ""
-            
-            for delimiter in delimiters:
-                pos = self.buffer.find(delimiter)
-                if pos != -1 and (first_delimiter_pos == -1 or pos < first_delimiter_pos):
-                    first_delimiter_pos = pos
-                    first_delimiter = delimiter
-            
-            # 如果没有找到标点符号，或者标点符号在缓冲区开头，则退出循环
-            if first_delimiter_pos == -1:
-                break
-            
-            # 提取从缓冲区开头到标点符号的完整句子
-            sentence_end = first_delimiter_pos + len(first_delimiter)
-            sentence = self.buffer[:sentence_end]
-            
-            # 检查句子是否完整（标点符号应该在句子末尾）
-            if sentence.strip():
-                completed_sentences.append((sentence.strip(), 1))
-                logger.debug(f"检测到完整句子: {sentence}")
-                
-                # 从缓冲区中移除已处理的句子
-                self.buffer = self.buffer[sentence_end:].lstrip()
-            else:
-                # 如果句子为空，只移除标点符号
-                self.buffer = self.buffer[sentence_end:]
-                break
-        
-        # 如果有完整的句子，返回第一个
-        if completed_sentences:
-            return completed_sentences[0]
-        
-        # 如果没有完整句子，检查缓冲区是否过长，如果是则强制分割
-        if len(self.buffer) > 100:  # 如果缓冲区超过100个字符，强制分割
-            # 查找最后一个可用的分割点
-            last_delimiter_pos = -1
-            for delimiter in delimiters:
-                pos = self.buffer.rfind(delimiter)
-                if pos != -1 and pos > last_delimiter_pos:
-                    last_delimiter_pos = pos
-            
-            if last_delimiter_pos != -1:
-                # 在最后一个标点符号处分割
-                sentence_end = last_delimiter_pos + 1
-                sentence = self.buffer[:sentence_end]
-                self.buffer = self.buffer[sentence_end:]
-                if sentence.strip():
-                    logger.debug(f"缓冲区过长，强制分割句子: {sentence}")
-                    return (sentence.strip(), 1)
-            else:
-                # 如果没有标点符号，在中间位置分割
-                mid_pos = len(self.buffer) // 2
-                sentence = self.buffer[:mid_pos]
-                self.buffer = self.buffer[mid_pos:]
-                if sentence.strip():
-                    logger.debug(f"缓冲区过长且无标点，强制分割句子: {sentence}")
-                    return (sentence.strip(), 0.5)  # 降低优先级
+        # 如果遇到标点符号且缓冲区有内容，返回完整句子并清空缓冲区
+        if punctuation_found and self.buffer.strip():
+            sentence = self.buffer.strip()
+            logger.debug(f"检测到完整句子: {sentence}")
+            # 清空缓冲区
+            self.buffer = ""
+            return sentence
         
         return None
     
@@ -668,12 +614,11 @@ class AIService:
             # 流式响应结束后，检查缓冲区中是否还有剩余内容
             if self.sentence_processor.buffer.strip():
                 # 如果有剩余内容，作为最后一个句子返回
-                remaining_sentence = (self.sentence_processor.buffer.strip(), 0.3)  # 最低优先级
-                logger.debug(f"流式响应结束，返回剩余内容: {self.sentence_processor.buffer}")
+                remaining_sentence = self.sentence_processor.buffer.strip()
+                logger.debug(f"流式响应结束，返回剩余内容: {remaining_sentence}")
                 yield ("", remaining_sentence)
-                
-            # 清空缓冲区
-            self.sentence_processor.clear_buffer()
+                # 清空缓冲区
+                self.sentence_processor.clear_buffer()
             
             logger.info(f"流式API调用完成（句子TTS模式），共 {chunk_count} 个数据块，总长度: {total_length} 字符")
             
@@ -1101,6 +1046,7 @@ async def websocket_chat(websocket: WebSocket):
                                 "timestamp": datetime.now().timestamp()
                             })
                             if sentence:
+                                logger.info(f"处理句子: {sentence}")
                                 tts_engine = data.get("tts_engine", "gtts")
                                 audio_task = asyncio.create_task(
                                     ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
