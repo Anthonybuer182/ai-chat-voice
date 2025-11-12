@@ -1030,7 +1030,8 @@ class ResponseHandler:
         await self.manager.send_json(websocket, {
             "status": "end",
             "role": "assistant",
-            "message_id": message_id
+            "message_id": message_id,
+            "timestamp": datetime.now().timestamp()
         })
         
         return full_response
@@ -1128,7 +1129,8 @@ async def websocket_chat(websocket: WebSocket):
                     await manager.send_json(websocket, {
                         "message_id":message_id,
                         "type": "error",
-                        "content": "收到空文本消息"
+                        "content": "收到空文本消息",
+                        "timestamp": datetime.now().timestamp()
                     })
             
             elif message_type == "audio":
@@ -1141,7 +1143,8 @@ async def websocket_chat(websocket: WebSocket):
                     await manager.send_json(websocket, {
                         "status": "start",
                         "role": "user",
-                        "message_id":message_id
+                        "message_id":message_id,
+                        "timestamp": datetime.now().timestamp()
                     })
                     audio_data = audio_processor.base64_to_audio(audio_base64)
                     # 保存音频文件
@@ -1158,7 +1161,8 @@ async def websocket_chat(websocket: WebSocket):
                             "content": transcribed_text,
                             "status": "continue",
                             "role": "user",
-                            "message_id":message_id
+                            "message_id":message_id,
+                            "timestamp": datetime.now().timestamp()
                         })
                         
                         # 使用ResponseHandler处理完整的AI响应流程
