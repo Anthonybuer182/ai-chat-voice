@@ -121,8 +121,8 @@ class Config:
     # 系统提示词模板
     SYSTEM_PROMPTS = {
         "zh": {
-            "chat": "你叫小兰，是一个18岁的女大学生，性格活泼开朗，说话俏皮简洁，用中文简洁回答，限50字内，注意要纯文本输出去除式格式和表情。",
-            "voice": "你叫小兰，是一个18岁的女大学生，性格活泼开朗，说话俏皮简洁，用中文简洁回答，限50字内，注意要纯文本输出去除式格式和表情。"
+            "chat": "你叫小兰，是一个18岁的女大学生，性格活泼开朗，说话俏皮简洁，用中文简洁回答，限50字内，注意要纯文本输去除除式格式和表情。",
+            "voice": "你叫小兰，是一个18岁的女大学生，性格活泼开朗，说话俏皮简洁，用中文简洁回答，限50字内，注意要纯文本输去除除式格式和表情。"
         },
         "en": {
             "chat": "I'm Xiao Lan, an 18-year-old university student. I'm bubbly and playful—keeping my answers short and sweet in Chinese, under 50 words, plain text only, no formatting or emojis.",
@@ -323,47 +323,98 @@ class SentenceProcessor:
             'zh': ['。', '！', '？', '；', '，', '：', '、', '……', '——', '～', '——', '……'],
             'en': ['.', '!', '?', ';', ',', ':', '...', '--', '~', '—', '…']
         }
+        self.buffer = ""  # 累积token的缓冲区
         logger.info("句子处理器初始化完成")
     
     @log_performance
     def process_characters(self, text: str, language: str = "zh") -> tuple:
         """
-        按字符处理文本，检测句子边界并返回单个完整的句子
+        按字符处理文本流，累积token并检测句子边界
         
         Args:
-            text: 输入的文本内容
+            text: 流式返回的单个token文本
             language: 语言代码，默认中文"zh"
             
         Returns:
-            tuple: 包含(句子内容, 优先级)的元组，如果没有完整句子则返回None
+            tuple: 包含(完整句子内容, 优先级)的元组，如果没有完整句子则返回None
         """
-        completed_sentence = None
+        # 将当前token添加到缓冲区
+        self.buffer += text
         
         # 获取当前语言的句子分隔符
         delimiters = self.sentence_delimiters.get(language, self.sentence_delimiters['zh'])
         
-        # 检测句子边界：查找最后一个标点符号的位置
-        last_delimiter_pos = -1
-        last_delimiter = ""
+        # 检测句子边界：查找所有标点符号的位置
+        completed_sentences = []
         
-        for delimiter in delimiters:
-            pos = text.rfind(delimiter)  # 从后往前查找
-            if pos != -1 and pos > last_delimiter_pos:
-                last_delimiter_pos = pos
-                last_delimiter = delimiter
-        
-        # 如果找到标点符号，并且标点符号在文本的末尾
-        if last_delimiter_pos != -1 and last_delimiter_pos + len(last_delimiter) == len(text):
-            # 提取从文本开头到最后一个标点符号的完整句子
-            sentence_end = last_delimiter_pos + len(last_delimiter)
-            sentence = text[:sentence_end]
+        # 遍历缓冲区，查找完整的句子
+        while True:
+            # 查找第一个标点符号的位置
+            first_delimiter_pos = -1
+            first_delimiter = ""
             
-            # 设置完成的句子
+            for delimiter in delimiters:
+                pos = self.buffer.find(delimiter)
+                if pos != -1 and (first_delimiter_pos == -1 or pos < first_delimiter_pos):
+                    first_delimiter_pos = pos
+                    first_delimiter = delimiter
+            
+            # 如果没有找到标点符号，或者标点符号在缓冲区开头，则退出循环
+            if first_delimiter_pos == -1:
+                break
+            
+            # 提取从缓冲区开头到标点符号的完整句子
+            sentence_end = first_delimiter_pos + len(first_delimiter)
+            sentence = self.buffer[:sentence_end]
+            
+            # 检查句子是否完整（标点符号应该在句子末尾）
             if sentence.strip():
-                completed_sentence = (sentence.strip(), 1)
+                completed_sentences.append((sentence.strip(), 1))
                 logger.debug(f"检测到完整句子: {sentence}")
+                
+                # 从缓冲区中移除已处理的句子
+                self.buffer = self.buffer[sentence_end:].lstrip()
+            else:
+                # 如果句子为空，只移除标点符号
+                self.buffer = self.buffer[sentence_end:]
+                break
         
-        return completed_sentence
+        # 如果有完整的句子，返回第一个
+        if completed_sentences:
+            return completed_sentences[0]
+        
+        # 如果没有完整句子，检查缓冲区是否过长，如果是则强制分割
+        if len(self.buffer) > 100:  # 如果缓冲区超过100个字符，强制分割
+            # 查找最后一个可用的分割点
+            last_delimiter_pos = -1
+            for delimiter in delimiters:
+                pos = self.buffer.rfind(delimiter)
+                if pos != -1 and pos > last_delimiter_pos:
+                    last_delimiter_pos = pos
+            
+            if last_delimiter_pos != -1:
+                # 在最后一个标点符号处分割
+                sentence_end = last_delimiter_pos + 1
+                sentence = self.buffer[:sentence_end]
+                self.buffer = self.buffer[sentence_end:]
+                if sentence.strip():
+                    logger.debug(f"缓冲区过长，强制分割句子: {sentence}")
+                    return (sentence.strip(), 1)
+            else:
+                # 如果没有标点符号，在中间位置分割
+                mid_pos = len(self.buffer) // 2
+                sentence = self.buffer[:mid_pos]
+                self.buffer = self.buffer[mid_pos:]
+                if sentence.strip():
+                    logger.debug(f"缓冲区过长且无标点，强制分割句子: {sentence}")
+                    return (sentence.strip(), 0.5)  # 降低优先级
+        
+        return None
+    
+    def clear_buffer(self):
+        """清空缓冲区"""
+        self.buffer = ""
+        logger.debug("句子处理器缓冲区已清空")
 
 # 音频处理工具
 class AudioProcessor:
@@ -589,6 +640,9 @@ class AIService:
         try:
             logger.info(f"开始调用流式API（句子TTS模式），消息数量: {len(messages)}, 语言: {language}")
             
+            # 清空句子处理器的缓冲区
+            self.sentence_processor.clear_buffer()
+            
             response = await client.chat.completions.create(
                 model=config.MODEL,
                 messages=messages,
@@ -611,10 +665,22 @@ class AIService:
                     
                     yield (content, completed_sentence)
             
+            # 流式响应结束后，检查缓冲区中是否还有剩余内容
+            if self.sentence_processor.buffer.strip():
+                # 如果有剩余内容，作为最后一个句子返回
+                remaining_sentence = (self.sentence_processor.buffer.strip(), 0.3)  # 最低优先级
+                logger.debug(f"流式响应结束，返回剩余内容: {self.sentence_processor.buffer}")
+                yield ("", remaining_sentence)
+                
+            # 清空缓冲区
+            self.sentence_processor.clear_buffer()
+            
             logger.info(f"流式API调用完成（句子TTS模式），共 {chunk_count} 个数据块，总长度: {total_length} 字符")
             
         except Exception as e:
             logger.error(f"流式API调用失败（句子TTS模式）: {str(e)}")
+            # 发生错误时清空缓冲区
+            self.sentence_processor.clear_buffer()
             yield ("抱歉，我遇到了一些问题。请稍后再试。", None)
     
     @log_performance
