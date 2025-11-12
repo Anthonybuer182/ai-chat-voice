@@ -790,6 +790,20 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
         
+        /* 消息时间戳样式 */
+        .message-timestamp {
+            font-size: 10px;
+            color: #6c757d;
+            margin-top: 4px;
+            text-align: right;
+            opacity: 0.7;
+            font-style: italic;
+        }
+        
+        .message.user .message-timestamp {
+            text-align: left;
+        }
+        
         .user-voice-message-indicator:hover {
             background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
             transform: translateY(-1px);
@@ -1031,8 +1045,8 @@
                                     audio_data: base64,
                                     message_id:messageId,
                                     language: currentLanguage,
-                                    tts_engine: document.getElementById('ttsEngine').value,
-                                    mode: 'voice'
+                                    tts_engine: document.getElementById('ttsEngine').value
+                                    // 移除mode字段，后端不需要处理模式切换
                                 }));
                             }
                         } else {
@@ -1238,28 +1252,18 @@
             
             if (tabIndex === 0) {
                 stopVAD();
-                // 切换到文本聊天模式
+                // 切换到文本聊天界面，保持当前连接状态
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
                     connectWebSocket('chat');
-                } else {
-                    // 如果已有连接，发送模式切换消息
-                    ws.send(JSON.stringify({
-                        type: 'mode',
-                        mode: 'chat'
-                    }));
                 }
+                // 已有连接时不需要发送模式切换消息，继续使用当前模式
                
             } else {
-                // 切换到语音聊天模式
+                // 切换到语音聊天界面，保持当前连接状态
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
                     connectWebSocket('voice');
-                } else {
-                    // 如果已有连接，发送模式切换消息
-                    ws.send(JSON.stringify({
-                        type: 'mode',
-                        mode: 'voice'
-                    }));
                 }
+                // 已有连接时不需要发送模式切换消息，继续使用当前模式
                 
                 // 延迟启动VAD检测，确保WebSocket连接已建立
                 setTimeout(() => {
@@ -1282,11 +1286,8 @@
                 updateStatus(statusId, statusText, true);
                 reconnectAttempts = 0;
                 
-                // 发送模式信息
-                ws.send(JSON.stringify({
-                    type: 'mode',
-                    mode: mode
-                }));
+                // 不再发送模式信息，后端不需要处理模式切换
+                // 连接建立后直接使用当前模式进行聊天
             };
             
             // 统一语音播放队列管理
@@ -1299,86 +1300,57 @@
                 const data = JSON.parse(event.data);
                 const messagesId = currentTab === 0 ? 'messages1' : 'messages2';
                 
+                // 根据后端ResponseHandler的消息格式处理
                 if (data.type === 'text') {
-                    updateStreamingMessage(messagesId, data.content, data.status, data.role, data.message_id);
+                    // 处理文本消息流
+                    handleTextMessage(data, messagesId);
                 } else if (data.type === 'audio') {
-                    if (data.status === 'sentence') {
-                        // 处理句子级别的音频消息
-                        if (!currentVoiceMessageElement) {
-                            // 创建单个语音气泡
-                            currentVoiceMessageElement = createAssistantVoiceMessageElement();
-                            currentVoiceMessageId = data.message_id;
-                            // 使用当前消息ID关联助手语音消息到对应的用户消息
-                            addVoiceMessage(messagesId, currentVoiceMessageElement, data.role, currentVoiceMessageId);
-                        }
-                        
-                        // 显示句子文本（可选）
-                        if (data.sentence) {
-                            console.log(`收到句子音频 (优先级 ${data.priority}): ${data.sentence}`);
-                        }
-                        
-                        // 将音频添加到播放队列
-                        audioQueue.push({
-                            base64Audio: data.content,
-                            priority: data.priority || 0
-                        });
-                        
-                        // 按优先级排序队列
-                        audioQueue.sort((a, b) => a.priority - b.priority);
-                        
-                        // 开始播放队列
-                        if (!isPlayingAudio) {
-                            playAudioQueue();
-                        }
-                        
-                    } else if (data.status === 'end') {
-                        // 音频流结束，重置状态
-                        console.log('音频流处理完成');
-                        currentVoiceMessageElement = null;
-                        currentVoiceMessageId = null;
-                    }
-                } else if (data.type === 'complete') {
-                    // 收到完成信号，重置等待状态
-                    isWaitingForResponse = false;
-                    
-                    // 启用发送按钮
-                    const sendBtn = document.querySelector('.btn-primary');
-                    sendBtn.disabled = false;
+                    // 处理音频消息（句子级别的TTS）
+                    handleAudioMessage(data, messagesId);
+                } else if (data.status === 'start') {
+                    // 处理开始状态消息
+                    handleStartMessage(data, messagesId);
+                } else if (data.status === 'end') {
+                    // 处理结束状态消息
+                    handleEndMessage(data, messagesId);
                 } else if (data.type === 'error') {
-                    console.error('WebSocket错误:', data.content);
-                    showError(data.content);
-                    
-                    // 重置等待状态
-                    isWaitingForResponse = false;
-                    const sendBtn = document.querySelector('.btn-primary');
-                    sendBtn.disabled = false;
+                    // 处理错误消息
+                    handleErrorMessage(data);
+                } else if (data.type === 'complete') {
+                    // 处理完成消息
+                    handleCompleteMessage();
                 }
             };
             
-            // 播放音频队列
+            // 播放音频队列 - 优化支持句子级别TTS
             async function playAudioQueue() {
                 if (audioQueue.length === 0) {
                     isPlayingAudio = false;
+                    console.log('音频队列播放完成');
                     return;
                 }
                 
                 isPlayingAudio = true;
                 const audioItem = audioQueue.shift();
                 
+                console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块`);
+                
                 try {
                     // 播放当前音频
                     await playAudio(audioItem.base64Audio);
                     
+                    console.log('音频块播放完成');
+                    
                     // 播放完成后继续播放下一个
                     setTimeout(() => {
                         playAudioQueue();
-                    }, 100); // 添加小延迟确保流畅播放
+                    }, 50); // 减少延迟，确保句子间流畅衔接
                 } catch (error) {
                     console.error('音频播放失败:', error);
-                    // 继续播放下一个
+                    // 继续播放下一个，不中断整个音频流
                     setTimeout(() => {
                         playAudioQueue();
-                    }, 100);
+                    }, 50);
                 }
             }
             
@@ -1392,10 +1364,139 @@
                 });
             }
             
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+            // 消息处理函数 - 根据后端ResponseHandler逻辑实现
+            
+            // 处理文本消息流
+            function handleTextMessage(data, messagesId) {
+                updateStreamingMessage(messagesId, data.content, data.status, data.role, data.message_id);
+            }
+            
+            // 处理音频消息（句子级别的TTS）
+            function handleAudioMessage(data, messagesId) {
+                console.log(`处理音频消息: status=${data.status}, message_id=${data.message_id}, 音频数据长度=${data.content ? data.content.length : 0}`);
+                
+                if (data.status === 'continue') {
+                    // 处理句子级别的音频消息
+                    if (!currentVoiceMessageElement) {
+                        // 创建单个语音气泡
+                        currentVoiceMessageElement = createAssistantVoiceMessageElement();
+                        currentVoiceMessageId = data.message_id;
+                        // 使用当前消息ID关联助手语音消息到对应的用户消息
+                        addVoiceMessage(messagesId, currentVoiceMessageElement, data.role, currentVoiceMessageId);
+                        console.log(`创建新的语音消息元素，message_id: ${currentVoiceMessageId}`);
+                    }
+                    
+                    // 检查音频数据是否有效
+                    if (data.content && data.content.length > 100) {
+                        console.log(`收到有效句子音频，数据长度: ${data.content.length}`);
+                        
+                        // 将音频添加到播放队列
+                        audioQueue.push({
+                            base64Audio: data.content,
+                            priority: 0 // 后端按顺序发送，不需要优先级排序
+                        });
+                        
+                        console.log(`音频已添加到队列，当前队列长度: ${audioQueue.length}`);
+                        
+                        // 开始播放队列
+                        if (!isPlayingAudio) {
+                            console.log('启动音频队列播放');
+                            playAudioQueue();
+                        }
+                    } else {
+                        console.warn('收到无效或过短的音频数据，跳过处理');
+                    }
+                }
+            }
+            
+            // 处理开始状态消息
+            function handleStartMessage(data, messagesId) {
+                if (data.role === 'assistant') {
+                    // 助手开始回复，显示思考指示器
+                    updateStreamingMessage(messagesId, '', 'start', data.role, data.message_id);
+                }
+            }
+            
+            // 处理结束状态消息
+            function handleEndMessage(data, messagesId) {
+                if (data.role === 'assistant') {
+                    // 助手回复结束，清理状态
+                    updateStreamingMessage(messagesId, '', 'end', data.role, data.message_id);
+                    
+                    // 音频流结束，重置状态
+                    if (data.type === 'audio') {
+                        console.log('音频流处理完成');
+                        currentVoiceMessageElement = null;
+                        currentVoiceMessageId = null;
+                    }
+                }
+            }
+            
+            // 处理错误消息 - 优化错误处理和状态管理
+            function handleErrorMessage(data) {
+                console.error('WebSocket错误消息:', data);
+                
+                // 显示错误信息
+                const errorMessage = data.content || '发生未知错误';
+                showError(errorMessage);
+                
+                // 重置等待状态
+                isWaitingForResponse = false;
+                
+                // 启用发送按钮
+                const sendBtn = document.querySelector('.btn-primary');
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                }
+                
+                // 更新连接状态
                 const statusId = currentTab === 0 ? 'status1' : 'status2';
                 updateStatus(statusId, '连接错误', false);
+                
+                // 如果是语音模式，重置录音状态
+                if (currentTab === 1) {
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                    updateRecordButton(false);
+                }
+                
+                console.log('错误处理完成，状态已重置');
+            }
+            
+            // 处理完成消息
+            function handleCompleteMessage() {
+                // 收到完成信号，重置等待状态
+                isWaitingForResponse = false;
+                
+                // 启用发送按钮
+                const sendBtn = document.querySelector('.btn-primary');
+                sendBtn.disabled = false;
+            }
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket连接错误:', error);
+                const statusId = currentTab === 0 ? 'status1' : 'status2';
+                updateStatus(statusId, '连接错误', false);
+                
+                // 重置等待状态
+                isWaitingForResponse = false;
+                
+                // 启用发送按钮
+                const sendBtn = document.querySelector('.btn-primary');
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                }
+                
+                // 如果是语音模式，重置录音状态
+                if (currentTab === 1) {
+                    if (isRecording) {
+                        stopRecording();
+                    }
+                    updateRecordButton(false);
+                }
+                
+                console.log('WebSocket错误处理完成，状态已重置');
             };
             
             ws.onclose = () => {
@@ -1429,33 +1530,44 @@
             }
         }
         
-        // 发送文本消息
+        // 发送文本消息 - 优化消息关联逻辑
         function sendTextMessage() {
             const textInput = document.getElementById('textInput');
             const message = textInput.value.trim();
-            if (!message) return;
+            
+            if (!message) {
+                console.warn('消息内容为空，无法发送');
+                return;
+            }
 
             // 检查是否正在等待回复
             if (isWaitingForResponse) {
                 showError('请等待当前回复完成后再发送新消息');
+                console.warn('当前正在等待回复，阻止新消息发送');
                 return;
             }
 
             if (ws && ws.readyState === WebSocket.OPEN) {
                 // 生成消息ID用于关联回复
                 const messageId = 'msg_' + Date.now();
+                console.log(`发送文本消息，message_id: ${messageId}`);
                 
+                // 发送消息到后端
                 ws.send(JSON.stringify({
                     type: "text",
                     message: message,
                     message_id: messageId,  // 添加消息ID用于关联
                     language: currentLanguage,
-                    tts_engine: document.getElementById('ttsEngine').value,
-                    mode: 'chat'  // 明确指定聊天模式
+                    tts_engine: document.getElementById('ttsEngine').value
+                    // 移除mode字段，后端不需要处理模式切换
                 }));
+                console.log('消息已发送到后端');
                 
                 // 添加用户消息，并记录消息ID
                 addMessage('messages1', message, 'user', messageId);
+                console.log('用户消息已添加到界面');
+                
+                // 清空输入框并聚焦
                 textInput.value = '';
                 textInput.focus();
                 
@@ -1463,9 +1575,15 @@
                 const sendBtn = document.querySelector('.btn-primary');
                 sendBtn.disabled = true;
                 isWaitingForResponse = true;
+                console.log('发送按钮已禁用，等待回复状态已设置');
+                
+                // 更新状态显示
+                updateStatus('status1', '等待回复...', true);
+                console.log('状态已更新为"等待回复..."');
                 
             } else {
-                console.error('WebSocket连接未就绪');
+                console.error('WebSocket连接未就绪，无法发送消息');
+                showError('连接未就绪，请检查连接状态');
             }
         }
         
@@ -1576,8 +1694,8 @@
                         audio_data: base64Audio,
                         message_id: messageId, // 估算时长
                         language: currentLanguage,  // 添加语言参数
-                        tts_engine: document.getElementById('ttsEngine').value,  // 添加TTS引擎参数
-                        mode: 'chat'  // 明确指定聊天模式
+                        tts_engine: document.getElementById('ttsEngine').value
+                        // 移除mode字段，后端不需要处理模式切换
                     }));
                 };
                 reader.readAsDataURL(audioBlob);
@@ -1587,7 +1705,7 @@
         
 
         
-        // 添加消息（带时间戳）
+        // 添加消息（带时间戳）- 优化消息关联逻辑
         function addMessage(containerId, content, sender, messageId = null) {
             const messagesDiv = document.getElementById(containerId);
             const messageDiv = document.createElement('div');
@@ -1596,97 +1714,28 @@
             // 添加消息ID作为属性，用于关联
             if (messageId) {
                 messageDiv.setAttribute('data-message-id', messageId);
+                console.log(`添加消息，message_id: ${messageId}, sender: ${sender}, container: ${containerId}`);
             }
+            
+            // 添加时间戳
+            const timestamp = new Date().toLocaleTimeString();
             
             messageDiv.innerHTML = `
                 <div class="message-content">
                     ${content}
+                    <div class="message-timestamp">${timestamp}</div>
                 </div>
             `;
             
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-        // 统一的消息流式更新函数
-        let currentStreamMessages = {};
-        
-        function updateStreamingMessage(containerId, content, status, role,messgaeId) {
-            const messagesDiv = document.getElementById(containerId);
-            const messageKey = `${containerId}_${role}`;
-            
-            if (status === 'start') {
-                // 创建新的消息元素
-                currentStreamMessages[messageKey] = document.createElement('div');
-                currentStreamMessages[messageKey].className = `message ${role}`;
-                
-                // 根据消息类型设置不同的思考指示器样式
-                const dotClass = role === 'user' ? 'thinking-dot-assitant' : 'thinking-dot';
-                
-                currentStreamMessages[messageKey].innerHTML = `
-                    <div class="message-content">
-                        <div class="thinking-dots">
-                            <div class="${dotClass}"></div>
-                            <div class="${dotClass}"></div>
-                            <div class="${dotClass}"></div>
-                        </div>
-                    </div>
-                `;
-                messagesDiv.appendChild(currentStreamMessages[messageKey]);
-            }
-            
-            if (currentStreamMessages[messageKey]) {
-                const messageContent = currentStreamMessages[messageKey].querySelector('.message-content');
-                if (messageContent) {
-                    const thinkingDots = messageContent.querySelector('.thinking-dots');
-                    
-                    // 处理内容到达的逻辑
-                    if (content && content.trim() !== '') {
-                        // 如果思考指示器还存在，先移除它并创建文本元素
-                        if (thinkingDots && thinkingDots.parentNode) {
-                            thinkingDots.remove();
-                            
-                            const textElement = document.createElement('span');
-                            messageContent.appendChild(textElement);
-                            textElement.textContent = content;
-                        } else {
-                            // 如果已经有文本元素，直接追加内容
-                            const textElement = messageContent.querySelector('span');
-                            if (textElement) {
-                                textElement.textContent += content;
-                            }
-                        }
-                    }
-                    
-                    if (status === 'end') {
-                        // 结束状态，清理
-                        delete currentStreamMessages[messageKey];
-                    }
-                    
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }
-            }
-        }
-        
-
-        // 添加语音消息（语音指示器直接作为消息）
-        function addVoiceMessage(containerId, voiceElement, sender, messageId = null) {
-            const messagesDiv = document.getElementById(containerId);
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}`;
-            
-            // 添加消息ID作为属性，用于关联
-            if (messageId) {
-                messageDiv.setAttribute('data-message-id', messageId);
-            }
-            
-            // 语音消息直接使用语音指示器作为内容，不嵌套在message-content中
-            messageDiv.innerHTML = voiceElement;
-            
+            // 根据发送者类型确定插入位置
             if (sender === 'assistant') {
-                // 助手语音消息：查找对应的用户消息，将语音消息插入到用户消息之后
+                // 助手消息：查找对应的用户消息，插入到用户消息之后
                 const userMessages = messagesDiv.querySelectorAll('.message.user');
                 if (userMessages.length > 0) {
                     const lastUserMessage = userMessages[userMessages.length - 1];
+                    const lastUserMessageId = lastUserMessage.getAttribute('data-message-id');
+                    
+                    console.log(`找到用户消息，message_id: ${lastUserMessageId}`);
                     
                     // 查找用户消息之后是否已经有助手回复
                     let insertPosition = lastUserMessage.nextSibling;
@@ -1704,20 +1753,186 @@
                     if (foundExistingReply && insertPosition) {
                         // 如果已经有助手回复，插入到助手回复之前
                         messagesDiv.insertBefore(messageDiv, insertPosition);
+                        console.log('助手消息插入到现有助手回复之前');
                     } else {
                         // 如果没有助手回复，插入到用户消息之后
                         messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
+                        console.log('助手消息插入到用户消息之后');
                     }
                 } else {
                     // 如果没有用户消息，添加到末尾
                     messagesDiv.appendChild(messageDiv);
+                    console.log('助手消息添加到消息容器末尾');
+                }
+            } else {
+                // 用户消息：直接添加到末尾
+                messagesDiv.appendChild(messageDiv);
+                console.log('用户消息添加到消息容器末尾');
+            }
+            
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            console.log('消息添加完成，已滚动到底部');
+        }
+        // 统一的消息流式更新函数 - 优化支持后端status字段
+        let currentStreamMessages = {};
+        
+        function updateStreamingMessage(containerId, content, status, role, messageId) {
+            const messagesDiv = document.getElementById(containerId);
+            const messageKey = `${containerId}_${role}_${messageId || 'default'}`;
+            
+            console.log(`流式消息更新: container=${containerId}, status=${status}, role=${role}, messageId=${messageId}, content=${content ? content.substring(0, 50) + '...' : '空'}`);
+            
+            // 处理start状态 - 开始新的消息流
+            if (status === 'start') {
+                // 创建新的消息元素
+                currentStreamMessages[messageKey] = document.createElement('div');
+                currentStreamMessages[messageKey].className = `message ${role}`;
+                
+                // 添加消息ID作为属性，用于关联
+                if (messageId) {
+                    currentStreamMessages[messageKey].setAttribute('data-message-id', messageId);
+                }
+                
+                // 根据角色设置不同的思考指示器
+                const dotClass = role === 'user' ? 'thinking-dot-assitant' : 'thinking-dot';
+                
+                currentStreamMessages[messageKey].innerHTML = `
+                    <div class="message-content">
+                        <div class="thinking-dots">
+                            <div class="${dotClass}"></div>
+                            <div class="${dotClass}"></div>
+                            <div class="${dotClass}"></div>
+                        </div>
+                    </div>
+                `;
+                messagesDiv.appendChild(currentStreamMessages[messageKey]);
+                
+                console.log(`创建新消息流: ${messageKey}`);
+            }
+            
+            // 处理continue状态 - 更新消息内容
+            else if (status === 'continue' && currentStreamMessages[messageKey]) {
+                const messageContent = currentStreamMessages[messageKey].querySelector('.message-content');
+                if (messageContent) {
+                    const thinkingDots = messageContent.querySelector('.thinking-dots');
+                    
+                    // 如果有内容需要显示
+                    if (content && content.trim() !== '') {
+                        // 如果思考指示器还存在，先移除它并创建文本元素
+                        if (thinkingDots && thinkingDots.parentNode) {
+                            thinkingDots.remove();
+                            
+                            const textElement = document.createElement('span');
+                            messageContent.appendChild(textElement);
+                            textElement.textContent = content;
+                            console.log(`移除思考指示器，添加新内容: ${content.substring(0, 30)}...`);
+                        } else {
+                            // 如果已经有文本元素，直接追加内容
+                            const textElement = messageContent.querySelector('span');
+                            if (textElement) {
+                                textElement.textContent += content;
+                                console.log(`追加内容: ${content.substring(0, 30)}...`);
+                            } else {
+                                // 如果没有文本元素但需要显示内容，创建新的
+                                const textElement = document.createElement('span');
+                                messageContent.appendChild(textElement);
+                                textElement.textContent = content;
+                                console.log(`创建新文本元素: ${content.substring(0, 30)}...`);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 处理end状态 - 结束消息流
+            else if (status === 'end' && currentStreamMessages[messageKey]) {
+                const messageContent = currentStreamMessages[messageKey].querySelector('.message-content');
+                if (messageContent) {
+                    // 移除可能存在的思考指示器
+                    const thinkingDots = messageContent.querySelector('.thinking-dots');
+                    if (thinkingDots && thinkingDots.parentNode) {
+                        thinkingDots.remove();
+                        
+                        // 如果没有内容，添加一个空文本元素
+                        if (!messageContent.querySelector('span')) {
+                            const textElement = document.createElement('span');
+                            messageContent.appendChild(textElement);
+                            textElement.textContent = '';
+                        }
+                    }
+                }
+                
+                // 清理消息流状态
+                delete currentStreamMessages[messageKey];
+                console.log(`结束消息流: ${messageKey}`);
+            }
+            
+            // 确保消息容器滚动到底部
+            if (currentStreamMessages[messageKey]) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        }
+        
+
+        // 添加语音消息（语音指示器直接作为消息）- 优化消息关联逻辑
+        function addVoiceMessage(containerId, voiceElement, sender, messageId = null) {
+            const messagesDiv = document.getElementById(containerId);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            // 添加消息ID作为属性，用于关联
+            if (messageId) {
+                messageDiv.setAttribute('data-message-id', messageId);
+                console.log(`添加语音消息，message_id: ${messageId}, sender: ${sender}`);
+            }
+            
+            // 语音消息直接使用语音指示器作为内容，不嵌套在message-content中
+            messageDiv.innerHTML = voiceElement;
+            
+            if (sender === 'assistant') {
+                // 助手语音消息：查找对应的用户消息，将语音消息插入到用户消息之后
+                const userMessages = messagesDiv.querySelectorAll('.message.user');
+                if (userMessages.length > 0) {
+                    const lastUserMessage = userMessages[userMessages.length - 1];
+                    const lastUserMessageId = lastUserMessage.getAttribute('data-message-id');
+                    
+                    console.log(`找到用户消息，message_id: ${lastUserMessageId}`);
+                    
+                    // 查找用户消息之后是否已经有助手回复
+                    let insertPosition = lastUserMessage.nextSibling;
+                    let foundExistingReply = false;
+                    
+                    while (insertPosition) {
+                        if (insertPosition.classList && insertPosition.classList.contains('message') && 
+                            insertPosition.classList.contains('assistant')) {
+                            foundExistingReply = true;
+                            break;
+                        }
+                        insertPosition = insertPosition.nextSibling;
+                    }
+                    
+                    if (foundExistingReply && insertPosition) {
+                        // 如果已经有助手回复，插入到助手回复之前
+                        messagesDiv.insertBefore(messageDiv, insertPosition);
+                        console.log('插入到现有助手回复之前');
+                    } else {
+                        // 如果没有助手回复，插入到用户消息之后
+                        messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
+                        console.log('插入到用户消息之后');
+                    }
+                } else {
+                    // 如果没有用户消息，添加到末尾
+                    messagesDiv.appendChild(messageDiv);
+                    console.log('添加到消息容器末尾');
                 }
             } else {
                 // 用户语音消息：直接添加到末尾
                 messagesDiv.appendChild(messageDiv);
+                console.log('用户语音消息添加到末尾');
             }
             
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            console.log('语音消息添加完成');
         }
         
         // 更新状态（支持双语）
