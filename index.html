@@ -905,8 +905,7 @@
     </script>
     
     <script>
-        let ws1 = null;
-        let ws2 = null;
+        let ws = null;
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
@@ -932,18 +931,13 @@
                 currentLanguage = savedLanguage;
             }
             
-            connectTab1();
+            connectWebSocket('chat');
             setupInputValidation();
             setupAccessibility();
             setupLanguageSelector();
             // 初始化界面语言
             updateInterfaceLanguage(currentLanguage);
         }        
-        
-         // Tab2 实时语音对话专用变量
-        let vadInstance = null;
-        let isListening = false;
-        let tab2isWaitingForResponse = false; // Tab2是否正在等待AI回复
         // 页面加载时初始化VAD
         window.onload = function() {
             console.log('页面加载完成，开始初始化VAD...');
@@ -1012,7 +1006,7 @@
                         // 处理录制的音频数据
                         if (audioData && audioData.length > 0) {
                             // 检查是否正在等待回复
-                            if (tab2isWaitingForResponse) {
+                            if (isWaitingForResponse) {
                                 console.log('正在等待AI回复，跳过新的语音输入');
                                 // 给用户显示提示信息
                                 showError('请等待AI回复后再继续说话');
@@ -1027,17 +1021,18 @@
                             addVoiceMessage('messages2', voiceMessageElement, 'user',messageId);
                             
                             // 如果WebSocket连接正常，发送音频数据
-                            if (ws2 && ws2.readyState === WebSocket.OPEN) {
+                            if (ws && ws.readyState === WebSocket.OPEN) {
                                 // 设置等待状态
-                                tab2isWaitingForResponse = true;
+                                isWaitingForResponse = true;
                                 updateStatus('status2', '正在处理语音...', false);
                                 
-                                ws2.send(JSON.stringify({
+                                ws.send(JSON.stringify({
                                     type: 'audio',
                                     audio_data: base64,
                                     message_id:messageId,
                                     language: currentLanguage,
-                                    tts_engine: document.getElementById('ttsEngine').value
+                                    tts_engine: document.getElementById('ttsEngine').value,
+                                    mode: 'voice'
                                 }));
                             }
                         } else {
@@ -1243,22 +1238,27 @@
             
             if (tabIndex === 0) {
                 stopVAD();
-                 if (ws2&&ws2.readyState == WebSocket.OPEN) {
-                    isManualClose = true;
-                    ws2.close();
-                }
-                if (!ws1 || ws1.readyState !== WebSocket.OPEN) {
-                    connectTab1();
+                // 切换到文本聊天模式
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    connectWebSocket('chat');
+                } else {
+                    // 如果已有连接，发送模式切换消息
+                    ws.send(JSON.stringify({
+                        type: 'mode',
+                        mode: 'chat'
+                    }));
                 }
                
             } else {
-                if (ws1 && ws1.readyState == WebSocket.OPEN) {
-                    isManualClose = true;
-                    ws1.close();
-                }
-                // 切换到Tab 2：启动VAD检测
-                if (!ws2 || ws2.readyState !== WebSocket.OPEN) {
-                    connectTab2();
+                // 切换到语音聊天模式
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    connectWebSocket('voice');
+                } else {
+                    // 如果已有连接，发送模式切换消息
+                    ws.send(JSON.stringify({
+                        type: 'mode',
+                        mode: 'voice'
+                    }));
                 }
                 
                 // 延迟启动VAD检测，确保WebSocket连接已建立
@@ -1268,30 +1268,39 @@
             }
         }
         
-        // 连接Tab1 WebSocket
-        function connectTab1() {
+        // 统一WebSocket连接函数
+        function connectWebSocket(mode) {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws1 = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
             
             // 标记为主动连接，不是重连
             isManualClose = false;
             
-            ws1.onopen = () => {
-                updateStatus('status1', '已连接', true);
+            ws.onopen = () => {
+                const statusId = currentTab === 0 ? 'status1' : 'status2';
+                const statusText = mode === 'voice' ? '已连接 - 可以开始说话' : '已连接';
+                updateStatus(statusId, statusText, true);
                 reconnectAttempts = 0;
+                
+                // 发送模式信息
+                ws.send(JSON.stringify({
+                    type: 'mode',
+                    mode: mode
+                }));
             };
             
-            // 语音播放队列管理
+            // 统一语音播放队列管理
             let audioQueue = [];
             let isPlayingAudio = false;
             let currentVoiceMessageElement = null;
             let currentVoiceMessageId = null;
             
-            ws1.onmessage = async (event) => {
+            ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
+                const messagesId = currentTab === 0 ? 'messages1' : 'messages2';
                 
                 if (data.type === 'text') {
-                    updateStreamingMessage('messages1', data.content, data.status, data.role, data.message_id);
+                    updateStreamingMessage(messagesId, data.content, data.status, data.role, data.message_id);
                 } else if (data.type === 'audio') {
                     if (data.status === 'sentence') {
                         // 处理句子级别的音频消息
@@ -1300,7 +1309,7 @@
                             currentVoiceMessageElement = createAssistantVoiceMessageElement();
                             currentVoiceMessageId = data.message_id;
                             // 使用当前消息ID关联助手语音消息到对应的用户消息
-                            addVoiceMessage('messages1', currentVoiceMessageElement, data.role, currentVoiceMessageId);
+                            addVoiceMessage(messagesId, currentVoiceMessageElement, data.role, currentVoiceMessageId);
                         }
                         
                         // 显示句子文本（可选）
@@ -1383,149 +1392,23 @@
                 });
             }
             
-            ws1.onerror = (error) => {
+            ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                updateStatus('status1', '连接错误', false);
+                const statusId = currentTab === 0 ? 'status1' : 'status2';
+                updateStatus(statusId, '连接错误', false);
             };
             
-            ws1.onclose = () => {
-                updateStatus('status1', '已断开', false);
+            ws.onclose = () => {
+                const statusId = currentTab === 0 ? 'status1' : 'status2';
+                updateStatus(statusId, '已断开', false);
                 // 只有在非主动关闭的情况下才尝试重连
                 if (!isManualClose) {
-                    attemptReconnect(connectTab1);
+                    attemptReconnect(() => connectWebSocket(mode));
                 }
             };
         }
         
-        // 连接Tab2 WebSocket
-        function connectTab2() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws2 = new WebSocket(`${protocol}//${window.location.host}/ws/voice`);
-            
-            // 标记为主动连接，不是重连
-            isManualClose = false;
-            
-            ws2.onopen = () => {
-                updateStatus('status2', '已连接 - 可以开始说话', true);
-                reconnectAttempts = 0;
-                // 重置Tab2的等待状态
-                tab2isWaitingForResponse = false;
-            };
-            
-            // Tab2语音播放队列管理
-            let audioQueue2 = [];
-            let isPlayingAudio2 = false;
-            let currentVoiceMessageElement2 = null;
-            let currentVoiceMessageId2 = null;
-            
-            ws2.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'text') {
-                    updateStreamingMessage('messages2', data.content, data.status, data.role, data.message_id);
-                } else if (data.type === 'audio') {
-                    if (data.status === 'sentence') {
-                        // 处理句子级别的音频消息
-                        if (!currentVoiceMessageElement2) {
-                            // 创建单个语音气泡
-                            currentVoiceMessageElement2 = createAssistantVoiceMessageElement();
-                            currentVoiceMessageId2 = data.message_id;
-                            // 使用当前消息ID关联助手语音消息到对应的用户消息
-                            addVoiceMessage('messages2', currentVoiceMessageElement2, data.role, currentVoiceMessageId2);
-                        }
-                        
-                        // 显示句子文本（可选）
-                        if (data.sentence) {
-                            console.log(`收到句子音频 (优先级 ${data.priority}): ${data.sentence}`);
-                        }
-                        
-                        // 将音频添加到播放队列
-                        audioQueue2.push({
-                            base64Audio: data.content,
-                            priority: data.priority || 0
-                        });
-                        
-                        // 按优先级排序队列
-                        audioQueue2.sort((a, b) => a.priority - b.priority);
-                        
-                        // 开始播放队列
-                        if (!isPlayingAudio2) {
-                            playAudioQueue2();
-                        }
-                        
-                    } else if (data.status === 'end') {
-                        // 音频流结束，重置状态
-                        console.log('音频流处理完成');
-                        currentVoiceMessageElement2 = null;
-                        currentVoiceMessageId2 = null;
-                    }
-                } else if (data.type === 'complete') {
-                   // 收到完成信号可以继续实施录音了
-                   console.log('语音对话完成，可以继续录音');
-                   
-                   // 重置Tab2的等待状态
-                   tab2isWaitingForResponse = false;
-                   
-                   // 更新状态指示器
-                   updateStatus('status2', '已连接 - 可以开始说话', true);
-                } else if (data.type === 'error') {
-                    console.error('WebSocket错误:', data.content);
-                    showError(data.content);
-                }
-            };
-            
-            // Tab2播放音频队列
-            async function playAudioQueue2() {
-                if (audioQueue2.length === 0) {
-                    isPlayingAudio2 = false;
-                    return;
-                }
-                
-                isPlayingAudio2 = true;
-                const audioItem = audioQueue2.shift();
-                
-                try {
-                    // 播放当前音频
-                    await playAudio2(audioItem.base64Audio);
-                    
-                    // 播放完成后继续播放下一个
-                    setTimeout(() => {
-                        playAudioQueue2();
-                    }, 100); // 添加小延迟确保流畅播放
-                } catch (error) {
-                    console.error('音频播放失败:', error);
-                    // 继续播放下一个
-                    setTimeout(() => {
-                        playAudioQueue2();
-                    }, 100);
-                }
-            }
-            
-            // Tab2播放音频函数
-            function playAudio2(base64Audio) {
-                return new Promise((resolve, reject) => {
-                    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-                    audio.onended = () => resolve();
-                    audio.onerror = () => reject(new Error('音频播放失败'));
-                    audio.play().catch(reject);
-                });
-            }
-            
-            ws2.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                updateStatus('status2', '连接错误', false);
-            };
-            
-            ws2.onclose = () => {
-                updateStatus('status2', '已断开', false);
-                // 重置Tab2的等待状态
-                tab2isWaitingForResponse = false;
-                // 只有在非主动关闭的情况下才尝试重连
-                if (!isManualClose) {
-                    attemptReconnect(connectTab2);
-                }
-            };
-        }
+
         
         // 尝试重新连接
         function attemptReconnect(connectFunction) {
@@ -1558,16 +1441,17 @@
                 return;
             }
 
-            if (ws1 && ws1.readyState === WebSocket.OPEN) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
                 // 生成消息ID用于关联回复
                 const messageId = 'msg_' + Date.now();
                 
-                ws1.send(JSON.stringify({
+                ws.send(JSON.stringify({
                     type: "text",
                     message: message,
                     message_id: messageId,  // 添加消息ID用于关联
                     language: currentLanguage,
-                    tts_engine: document.getElementById('ttsEngine').value
+                    tts_engine: document.getElementById('ttsEngine').value,
+                    mode: 'chat'  // 明确指定聊天模式
                 }));
                 
                 // 添加用户消息，并记录消息ID
@@ -1673,7 +1557,7 @@
                 return;
             }
             
-            if (ws1 && ws1.readyState === WebSocket.OPEN) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
                 const reader = new FileReader();
                 reader.onload = () => {
                     const base64Audio = reader.result.split(',')[1];
@@ -1687,12 +1571,13 @@
                     sendBtn.disabled = true;
                     isWaitingForResponse = true;
                     
-                    ws1.send(JSON.stringify({
+                    ws.send(JSON.stringify({
                         type: 'audio',
                         audio_data: base64Audio,
                         message_id: messageId, // 估算时长
                         language: currentLanguage,  // 添加语言参数
-                        tts_engine: document.getElementById('ttsEngine').value  // 添加TTS引擎参数
+                        tts_engine: document.getElementById('ttsEngine').value,  // 添加TTS引擎参数
+                        mode: 'chat'  // 明确指定聊天模式
                     }));
                 };
                 reader.readAsDataURL(audioBlob);
@@ -2050,13 +1935,9 @@
         // 页面关闭时清理资源
         window.addEventListener('beforeunload', () => {
             console.log('页面即将关闭，开始清理资源');
-            if (ws1) {
-                console.log('关闭聊天WebSocket连接');
-                ws1.close();
-            }
-            if (ws2) {
-                console.log('关闭语音WebSocket连接');
-                ws2.close();
+            if (ws) {
+                console.log('关闭WebSocket连接');
+                ws.close();
             }
             stopVAD();
             console.log('资源清理完成');
