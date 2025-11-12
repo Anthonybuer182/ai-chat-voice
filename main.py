@@ -1041,27 +1041,25 @@ async def websocket_chat(websocket: WebSocket):
                                 )
                                 
                                 # 创建任务完成后的回调函数
-                                async def send_audio_when_ready(task, sent_sentence):
+                                async def send_audio_when_ready(task):
                                     try:
                                         audio_data = await asyncio.wait_for(task, timeout=30.0)
                                         if audio_data:
                                             await manager.send_json(websocket, {
                                                 "type": "audio",
                                                 "content": audio_processor.audio_to_base64(audio_data),
-                                                "status": "sentence",
                                                 "role": "assistant",
                                                 "message_id": message_id,
-                                                "sentence": sent_sentence,
                                                 "timestamp": datetime.now().timestamp()
 
                                             })
                                     except asyncio.TimeoutError:
-                                        logger.warning(f"句子TTS超时: {sent_sentence}")
+                                        logger.warning(f"句子TTS超时: {sentence}")
                                     except Exception as e:
-                                        logger.error(f"句子TTS失败: {sent_sentence}, 错误: {str(e)}")
+                                        logger.error(f"句子TTS失败,: {sentence} 错误: {str(e)}")
                                 
                                 # 启动异步任务，不等待完成
-                                asyncio.create_task(send_audio_when_ready(audio_task, sentence))
+                                asyncio.create_task(send_audio_when_ready(audio_task))
                         
                     
                     # 发送文本结束状态
@@ -1168,26 +1166,24 @@ async def websocket_chat(websocket: WebSocket):
                                 )
                                 
                                 # 创建任务完成后的回调函数
-                                async def send_audio_when_ready(task, sent_sentence):
+                                async def send_audio_when_ready(task):
                                     try:
                                         audio_data = await asyncio.wait_for(task, timeout=30.0)
                                         if audio_data:
                                             await manager.send_json(websocket, {
                                                 "type": "audio",
                                                 "content": audio_processor.audio_to_base64(audio_data),
-                                                "status": "sentence",
                                                 "role": "assistant",
                                                 "message_id": message_id,
-                                                "sentence": sent_sentence,
                                                 "timestamp": datetime.now().timestamp()
                                             })
                                     except asyncio.TimeoutError:
-                                        logger.warning(f"句子TTS超时 : {sent_sentence}")
+                                        logger.warning(f"句子TTS超时 : {sentence}")
                                     except Exception as e:
-                                        logger.error(f"句子TTS失败: {sent_sentence}, 错误: {str(e)}")
+                                        logger.error(f"句子TTS失败: {sentence}, 错误: {str(e)}")
                                 
                                 # 启动异步任务，不等待完成
-                                asyncio.create_task(send_audio_when_ready(audio_task, sentence))
+                                asyncio.create_task(send_audio_when_ready(audio_task))
     
                         # 发送文本结束状态
                         await manager.send_json(websocket, {
