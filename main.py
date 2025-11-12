@@ -1138,7 +1138,6 @@ async def websocket_chat(websocket: WebSocket):
                 logger.info(f"音频消息数据大小: {len(audio_base64)} 字节")
                 
                 if audio_base64:
-                    logger.info(f"发送start消息")
                     await manager.send_json(websocket, {
                         "status": "start",
                         "role": "user",
@@ -1153,7 +1152,6 @@ async def websocket_chat(websocket: WebSocket):
                     os.unlink(audio_file)
                     
                     if transcribed_text and len(transcribed_text.strip()) > 1:
-                        logger.info(f"stt语音转文本: {transcribed_text}")
                         # 发送转录文本给前端
                         await manager.send_json(websocket, {
                             "type": "text",
