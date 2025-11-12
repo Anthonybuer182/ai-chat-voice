@@ -28,7 +28,6 @@ import os
 import json
 import base64
 import asyncio
-from sqlite3.dbapi2 import Timestamp
 import tempfile
 import time
 from typing import Dict, List, AsyncGenerator
@@ -616,7 +615,7 @@ class AIService:
             
         except Exception as e:
             logger.error(f"流式API调用失败（句子TTS模式）: {str(e)}")
-            yield ("抱歉，我遇到了一些问题。请稍后再试。", [], "error")
+            yield ("抱歉，我遇到了一些问题。请稍后再试。", None)
     
     @log_performance
     async def text_to_speech_with_engine(self, text: str, engine: str, language: str = "zh", max_retries: int = 3) -> bytes:
@@ -990,7 +989,7 @@ async def websocket_chat(websocket: WebSocket):
             logger.debug("等待接收WebSocket消息...")
             data = await websocket.receive_json()
             message_type = data.get("type")
-            message_id =data.get("message_id")
+            message_id = data.get("message_id")
             logger.debug(f"收到WebSocket消息，类型: {message_type}")
             await manager.send_json(websocket, {"type": "begin"})
             logger.info(f"会话开始")
