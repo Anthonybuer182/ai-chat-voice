@@ -831,7 +831,6 @@
             connectWebSocket();
             setupInputValidation();
             setupLanguageSelector();
-            // 初始化界面语言
             updateInterfaceLanguage(currentLanguage);
         }        
         // 页面加载时初始化VAD
@@ -1109,7 +1108,7 @@
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
                 const messagesId = 'messages'; // 现在使用共享的messages
-                
+                console.log('WS消息接收:', data);
                 // 根据后端ResponseHandler的消息格式处理
                 if (data.type === 'text') {
                     // 处理文本消息流
@@ -1518,16 +1517,16 @@
             // 添加消息ID作为属性，用于关联
             if (messageId) {
                 messageDiv.setAttribute('data-message-id', messageId);
-                console.log(`添加消息，message_id: ${messageId}, sender: ${sender}, container: ${containerId}`);
+                console.log(`UI添加消息，message_id: ${messageId}, sender: ${sender}, container: ${containerId}`);
             }
             
-            // 添加时间戳
+            // 添加时间戳（用于语音消息连续播放记录顺序，但不显示）
             const timestamp = new Date().toLocaleTimeString();
+            messageDiv.setAttribute('data-timestamp', timestamp);
             
             messageDiv.innerHTML = `
                 <div class="message-content">
                     ${content}
-                    <div class="message-timestamp">${timestamp}</div>
                 </div>
             `;
             
