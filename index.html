@@ -1514,15 +1514,9 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
-            // 添加消息ID作为属性，用于关联
             if (messageId) {
-                messageDiv.setAttribute('data-message-id', messageId);
                 console.log(`UI添加消息，message_id: ${messageId}, sender: ${sender}, container: ${containerId}`);
             }
-            
-            // 添加时间戳（用于语音消息连续播放记录顺序，但不显示）
-            const timestamp = new Date().toLocaleTimeString();
-            messageDiv.setAttribute('data-timestamp', timestamp);
             
             messageDiv.innerHTML = `
                 <div class="message-content">
@@ -1530,50 +1524,10 @@
                 </div>
             `;
             
-            // 根据发送者类型确定插入位置
-            if (sender === 'assistant') {
-                // 助手消息：查找对应的用户消息，插入到用户消息之后
-                const userMessages = messagesDiv.querySelectorAll('.message.user');
-                if (userMessages.length > 0) {
-                    const lastUserMessage = userMessages[userMessages.length - 1];
-                    const lastUserMessageId = lastUserMessage.getAttribute('data-message-id');
-                    
-                    console.log(`找到用户消息，message_id: ${lastUserMessageId}`);
-                    
-                    // 查找用户消息之后是否已经有助手回复
-                    let insertPosition = lastUserMessage.nextSibling;
-                    let foundExistingReply = false;
-                    
-                    while (insertPosition) {
-                        if (insertPosition.classList && insertPosition.classList.contains('message') && 
-                            insertPosition.classList.contains('assistant')) {
-                            foundExistingReply = true;
-                            break;
-                        }
-                        insertPosition = insertPosition.nextSibling;
-                    }
-                    
-                    if (foundExistingReply && insertPosition) {
-                        // 如果已经有助手回复，插入到助手回复之前
-                        messagesDiv.insertBefore(messageDiv, insertPosition);
-                        console.log('助手消息插入到现有助手回复之前');
-                    } else {
-                        // 如果没有助手回复，插入到用户消息之后
-                        messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
-                        console.log('助手消息插入到用户消息之后');
-                    }
-                } else {
-                    // 如果没有用户消息，添加到末尾
-                    messagesDiv.appendChild(messageDiv);
-                    console.log('助手消息添加到消息容器末尾');
-                }
-            } else {
-                // 用户消息：直接添加到末尾
-                messagesDiv.appendChild(messageDiv);
-                console.log('用户消息添加到消息容器末尾');
-            }
-            
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            // 简化版消息插入逻辑 - 所有消息都添加到末尾
+             messagesDiv.appendChild(messageDiv);
+             console.log(`${sender}消息添加到消息容器末尾`);
+             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             console.log('消息添加完成，已滚动到底部');
         }
         // 统一的消息流式更新函数 - 优化支持后端status字段
@@ -1590,11 +1544,6 @@
                 // 创建新的消息元素
                 currentStreamMessages[messageKey] = document.createElement('div');
                 currentStreamMessages[messageKey].className = `message ${role}`;
-                
-                // 添加消息ID作为属性，用于关联
-                if (messageId) {
-                    currentStreamMessages[messageKey].setAttribute('data-message-id', messageId);
-                }
                 
                 // 根据角色设置不同的思考指示器
                 const dotClass = role === 'user' ? 'thinking-dot-assitant' : 'thinking-dot';
@@ -1692,47 +1641,9 @@
             // 语音消息直接使用语音指示器作为内容，不嵌套在message-content中
             messageDiv.innerHTML = voiceElement;
             
-            if (sender === 'assistant') {
-                // 助手语音消息：查找对应的用户消息，将语音消息插入到用户消息之后
-                const userMessages = messagesDiv.querySelectorAll('.message.user');
-                if (userMessages.length > 0) {
-                    const lastUserMessage = userMessages[userMessages.length - 1];
-                    const lastUserMessageId = lastUserMessage.getAttribute('data-message-id');
-                    
-                    console.log(`找到用户消息，message_id: ${lastUserMessageId}`);
-                    
-                    // 查找用户消息之后是否已经有助手回复
-                    let insertPosition = lastUserMessage.nextSibling;
-                    let foundExistingReply = false;
-                    
-                    while (insertPosition) {
-                        if (insertPosition.classList && insertPosition.classList.contains('message') && 
-                            insertPosition.classList.contains('assistant')) {
-                            foundExistingReply = true;
-                            break;
-                        }
-                        insertPosition = insertPosition.nextSibling;
-                    }
-                    
-                    if (foundExistingReply && insertPosition) {
-                        // 如果已经有助手回复，插入到助手回复之前
-                        messagesDiv.insertBefore(messageDiv, insertPosition);
-                        console.log('插入到现有助手回复之前');
-                    } else {
-                        // 如果没有助手回复，插入到用户消息之后
-                        messagesDiv.insertBefore(messageDiv, lastUserMessage.nextSibling);
-                        console.log('插入到用户消息之后');
-                    }
-                } else {
-                    // 如果没有用户消息，添加到末尾
-                    messagesDiv.appendChild(messageDiv);
-                    console.log('添加到消息容器末尾');
-                }
-            } else {
-                // 用户语音消息：直接添加到末尾
-                messagesDiv.appendChild(messageDiv);
-                console.log('用户语音消息添加到末尾');
-            }
+            // 简化版语音消息插入逻辑 - 所有消息都添加到末尾
+            messagesDiv.appendChild(messageDiv);
+            console.log(`${sender}语音消息添加到消息容器末尾`);
             
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             console.log('语音消息添加完成');
