@@ -828,7 +828,7 @@
                 inputArea.style.display = 'none';
             }
             
-            connectWebSocket('chat');
+            connectWebSocket();
             setupInputValidation();
             setupLanguageSelector();
             // 初始化界面语言
@@ -928,7 +928,6 @@
                                     message_id:messageId,
                                     language: currentLanguage,
                                     tts_engine: getCurrentTtsEngine()
-                                    // 移除mode字段，后端不需要处理模式切换
                                 }));
                             }
                         } else {
@@ -1085,7 +1084,7 @@
         }
         
         // 统一WebSocket连接函数
-        function connectWebSocket(mode) {
+        function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
             
@@ -1095,11 +1094,10 @@
             ws.onopen = () => {
                 const statusId = 'status'; // 现在使用共享的status
                 const statusText = '已连接';
+
                 updateStatus(statusId, statusText, true);
                 reconnectAttempts = 0;
-                
-                // 不再发送模式信息，后端不需要处理模式切换
-                // 连接建立后直接使用当前模式进行聊天
+                console.log('WS连接成功');
             };
             
             // 统一语音播放队列管理
@@ -1313,7 +1311,7 @@
                 updateStatus('status', '已断开', false);
                 // 只有在非主动关闭的情况下才尝试重连
                 if (!isManualClose) {
-                    attemptReconnect(() => connectWebSocket(mode));
+                    attemptReconnect(() => connectWebSocket());
                 }
             };
         }
@@ -1366,7 +1364,6 @@
                     message_id: messageId,  // 添加消息ID用于关联
                     language: currentLanguage,
                     tts_engine: getCurrentTtsEngine()
-                    // 移除mode字段，后端不需要处理模式切换
                 };
                 ws.send(JSON.stringify(messageData));
                 console.log('WS消息发送:', messageData);
@@ -1503,7 +1500,6 @@
                         message_id: messageId, // 估算时长
                         language: currentLanguage,  // 添加语言参数
                         tts_engine: getCurrentTtsEngine()
-                        // 移除mode字段，后端不需要处理模式切换
                     }));
                 };
                 reader.readAsDataURL(audioBlob);
