@@ -1125,10 +1125,7 @@
                 } else if (data.type === 'error') {
                     // 处理错误消息
                     handleErrorMessage(data);
-                } else if (data.type === 'complete') {
-                    // 处理完成消息
-                    handleCompleteMessage();
-                }
+                } 
             };
             
             // 播放音频队列 - 优化支持句子级别TTS
@@ -1265,16 +1262,6 @@
                 }
                 
                 console.log('错误处理完成，状态已重置');
-            }
-            
-            // 处理完成消息
-            function handleCompleteMessage() {
-                // 收到完成信号，重置等待状态
-                isWaitingForResponse = false;
-                
-                // 启用发送按钮
-                const sendBtn = document.querySelector('.btn-primary');
-                sendBtn.disabled = false;
             }
             
             ws.onerror = (error) => {

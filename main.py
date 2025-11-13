@@ -1201,7 +1201,6 @@ async def websocket_chat(websocket: WebSocket):
                     "message_id":message_id,
                     "timestamp": datetime.now().timestamp()
                 })
-            await manager.send_json(websocket, {"type": "complete","message_id":message_id,"timestamp": datetime.now().timestamp()})
 
     except WebSocketDisconnect:
         logger.info(f"聊天WebSocket连接断开，会话ID: {session_id}")
