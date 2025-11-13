@@ -812,13 +812,6 @@
                             <div class="custom-tts-option" data-value="edgetts">EdgeTTS</div>
                             <div class="custom-tts-option" data-value="elevenlabs">ElevenLabs</div>
                         </div>
-                        <!-- 隐藏的原生select用于表单提交 -->
-                        <select class="tts-select" id="ttsEngine" style="display: none;">
-                            <option value="pyttsx3" selected>pyttsx3</option>
-                            <option value="gtts">gTTS</option>
-                            <option value="edgetts">EdgeTTS</option>
-                            <option value="elevenlabs">ElevenLabs</option>
-                        </select>
                     </div>
                 </div>
             </div>
@@ -996,7 +989,7 @@
                                     audio_data: base64,
                                     message_id:messageId,
                                     language: currentLanguage,
-                                    tts_engine: document.getElementById('ttsEngine').value
+                                    tts_engine: getCurrentTtsEngine()
                                     // 移除mode字段，后端不需要处理模式切换
                                 }));
                             }
@@ -1434,7 +1427,7 @@
                     message: message,
                     message_id: messageId,  // 添加消息ID用于关联
                     language: currentLanguage,
-                    tts_engine: document.getElementById('ttsEngine').value
+                    tts_engine: getCurrentTtsEngine()
                     // 移除mode字段，后端不需要处理模式切换
                 };
                 ws.send(JSON.stringify(messageData));
@@ -1571,7 +1564,7 @@
                         audio_data: base64Audio,
                         message_id: messageId, // 估算时长
                         language: currentLanguage,  // 添加语言参数
-                        tts_engine: document.getElementById('ttsEngine').value
+                        tts_engine: getCurrentTtsEngine()
                         // 移除mode字段，后端不需要处理模式切换
                     }));
                 };
@@ -1915,20 +1908,22 @@
             }, 3000);
         }
         
+        // 获取当前TTS引擎值
+        function getCurrentTtsEngine() {
+            const savedTtsEngine = localStorage.getItem('selectedTtsEngine');
+            return savedTtsEngine || 'pyttsx3'; // 默认使用pyttsx3
+        }
+        
         // 自定义TTS选择器功能
         function setupCustomTtsSelector() {
             const selector = document.getElementById('customTtsSelector');
             const select = document.getElementById('customTtsSelect');
             const dropdown = document.getElementById('customTtsDropdown');
             const options = dropdown.querySelectorAll('.custom-tts-option');
-            const nativeSelect = document.getElementById('ttsEngine');
             
             // 从localStorage加载保存的TTS选择
             const savedTtsEngine = localStorage.getItem('selectedTtsEngine');
             if (savedTtsEngine) {
-                // 更新原生select
-                nativeSelect.value = savedTtsEngine;
-                
                 // 更新自定义选择器显示
                 const savedOption = dropdown.querySelector(`[data-value="${savedTtsEngine}"]`);
                 if (savedOption) {
@@ -1975,9 +1970,6 @@
                     options.forEach(opt => opt.classList.remove('selected'));
                     this.classList.add('selected');
                     
-                    // 更新原生select
-                    nativeSelect.value = value;
-                    
                     // 保存到localStorage
                     localStorage.setItem('selectedTtsEngine', value);
                     
@@ -1985,10 +1977,6 @@
                     selector.classList.remove('active');
                     dropdown.classList.remove('active');
                     select.classList.remove('active');
-                    
-                    // 触发change事件
-                    const event = new Event('change');
-                    nativeSelect.dispatchEvent(event);
                 });
             });
             
@@ -2007,12 +1995,11 @@
             });
             
             // 初始化选中状态（如果没有保存的选择，使用默认值）
-            const initialValue = savedTtsEngine || nativeSelect.value;
+            const initialValue = savedTtsEngine || 'pyttsx3';
             const initialOption = dropdown.querySelector(`[data-value="${initialValue}"]`);
             if (initialOption) {
                 initialOption.classList.add('selected');
                 select.textContent = initialOption.textContent;
-                nativeSelect.value = initialValue;
             }
         }
         
