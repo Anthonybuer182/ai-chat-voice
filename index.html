@@ -913,7 +913,7 @@
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
                             const messageId = 'msg_' + Date.now();
                             const voiceMessageElement = createUserVoiceMessageElement(base64);
-                            addVoiceMessage('messages', voiceMessageElement, 'user',messageId);
+                            addVoiceMessage(voiceMessageElement, 'user',messageId);
                             
                             // 如果WebSocket连接正常，发送音频数据
                             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1106,22 +1106,21 @@
             let currentVoiceMessageId = null;
             
             ws.onmessage = async (event) => {
-                const data = JSON.parse(event.data);
-                const messagesId = 'messages'; // 现在使用共享的messages
+                const data = JSON.parse(event.data);// 现在使用共享的messages
                 console.log('WS消息接收:', data);
                 // 根据后端ResponseHandler的消息格式处理
                 if (data.type === 'text') {
                     // 处理文本消息流
-                    handleTextMessage(data, messagesId);
+                     handleTextMessage(data);
                 } else if (data.type === 'audio') {
                     // 处理音频消息（句子级别的TTS）
-                    handleAudioMessage(data, messagesId);
+                    handleAudioMessage(data);
                 } else if (data.status === 'start') {
                     // 处理开始状态消息
-                    handleStartMessage(data, messagesId);
+                    handleTextMessage(data);
                 } else if (data.status === 'end') {
                     // 处理结束状态消息
-                    handleEndMessage(data, messagesId);
+                    handleTextMessage(data);
                 } else if (data.type === 'error') {
                     // 处理错误消息
                     handleErrorMessage(data);
@@ -1170,15 +1169,8 @@
                 });
             }
             
-            // 消息处理函数 - 根据后端ResponseHandler逻辑实现
-            
-            // 处理文本消息流
-            function handleTextMessage(data, messagesId) {
-                updateStreamingMessage(messagesId, data.content, data.status, data.role, data.message_id);
-            }
-            
             // 处理音频消息（句子级别的TTS）
-            function handleAudioMessage(data, messagesId) {                
+            function handleAudioMessage(data) {                
                 if (data.status === 'continue') {
                     // 处理句子级别的音频消息
                     if (!currentVoiceMessageElement) {
@@ -1186,7 +1178,7 @@
                         currentVoiceMessageElement = createAssistantVoiceMessageElement();
                         currentVoiceMessageId = data.message_id;
                         // 使用当前消息ID关联助手语音消息到对应的用户消息
-                        addVoiceMessage(messagesId, currentVoiceMessageElement, data.role, currentVoiceMessageId);
+                        addVoiceMessage(currentVoiceMessageElement, data.role, currentVoiceMessageId);
                     }
                     
                     // 检查音频数据是否有效
@@ -1206,29 +1198,6 @@
                         }
                     } else {
                         console.warn('收到无效或过短的音频数据，跳过处理');
-                    }
-                }
-            }
-            
-            // 处理开始状态消息
-            function handleStartMessage(data, messagesId) {
-                if (data.role === 'assistant') {
-                    // 助手开始回复，显示思考指示器
-                    updateStreamingMessage(messagesId, '', 'start', data.role, data.message_id);
-                }
-            }
-            
-            // 处理结束状态消息
-            function handleEndMessage(data, messagesId) {
-                if (data.role === 'assistant') {
-                    // 助手回复结束，清理状态
-                    updateStreamingMessage(messagesId, '', 'end', data.role, data.message_id);
-                    
-                    // 音频流结束，重置状态
-                    if (data.type === 'audio') {
-                        console.log('音频流处理完成');
-                        currentVoiceMessageElement = null;
-                        currentVoiceMessageId = null;
                     }
                 }
             }
@@ -1465,7 +1434,7 @@
                     const messageId = 'msg_' + Date.now();
                     // 录制完成后立即显示语音气泡
                     const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
-                    addVoiceMessage('messages', voiceMessageElement, 'user',messageId);
+                    addVoiceMessage( voiceMessageElement, 'user',messageId);
                     
                     // 禁用发送按钮并设置等待状态
                     const sendBtn = document.querySelector('.btn-primary');
@@ -1510,9 +1479,10 @@
         // 统一的消息流式更新函数 - 优化支持后端status字段
         let currentStreamMessages = {};
         
-        function updateStreamingMessage(containerId, content, status, role, messageId) {
-            const messagesDiv = document.getElementById(containerId);
-            const messageKey = `${containerId}_${role}_${messageId || 'default'}`;
+        function handleTextMessage(data) {
+            const { role, content, status, message_id } = data;
+            const messagesDiv = document.getElementById('messages');
+            const messageKey = `${messagesDiv.id}_${role}_${message_id || 'default'}`;
             
             // 处理start状态 - 开始新的消息流
             if (status === 'start') {
@@ -1601,8 +1571,8 @@
         
 
         // 添加语音消息（语音指示器直接作为消息）- 优化消息关联逻辑
-        function addVoiceMessage(containerId, voiceElement, sender, messageId = null) {
-            const messagesDiv = document.getElementById(containerId);
+        function addVoiceMessage(voiceElement, sender, messageId = null) {
+            const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
