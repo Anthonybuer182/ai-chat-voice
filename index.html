@@ -1181,9 +1181,7 @@
             }
             
             // 处理音频消息（句子级别的TTS）
-            function handleAudioMessage(data, messagesId) {
-                console.log(`处理音频消息: status=${data.status}, message_id=${data.message_id}, 音频数据长度=${data.content ? data.content.length : 0}`);
-                
+            function handleAudioMessage(data, messagesId) {                
                 if (data.status === 'continue') {
                     // 处理句子级别的音频消息
                     if (!currentVoiceMessageElement) {
@@ -1192,13 +1190,10 @@
                         currentVoiceMessageId = data.message_id;
                         // 使用当前消息ID关联助手语音消息到对应的用户消息
                         addVoiceMessage(messagesId, currentVoiceMessageElement, data.role, currentVoiceMessageId);
-                        console.log(`创建新的语音消息元素，message_id: ${currentVoiceMessageId}`);
                     }
                     
                     // 检查音频数据是否有效
-                    if (data.content && data.content.length > 100) {
-                        console.log(`收到有效句子音频，数据长度: ${data.content.length}`);
-                        
+                    if (data.content && data.content.length > 100) {                        
                         // 将音频添加到播放队列
                         audioQueue.push({
                             base64Audio: data.content,
@@ -1369,7 +1364,6 @@
                 
                 // 添加用户消息，并记录消息ID
                 addMessage('messages', message, 'user', messageId);
-                console.log(`添用户消息已添加到聊天页面，message_id: ${messageId}, message: ${message}`);
                 
                 // 清空输入框并聚焦
                 textInput.value = '';
@@ -1379,11 +1373,9 @@
                 const sendBtn = document.querySelector('.btn-primary');
                 sendBtn.disabled = true;
                 isWaitingForResponse = true;
-                console.log('发送按钮已禁用，等待回复状态已设置');
                 
                 // 更新状态显示
                 updateStatus('status', '等待回复...', true);
-                console.log('状态已更新为"等待回复..."');
                 
             } else {
                 console.error('WebSocket连接未就绪，无法发送消息');
@@ -1526,9 +1518,7 @@
             
             // 简化版消息插入逻辑 - 所有消息都添加到末尾
              messagesDiv.appendChild(messageDiv);
-             console.log(`${sender}消息添加到消息容器末尾`);
              messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            console.log('消息添加完成，已滚动到底部');
         }
         // 统一的消息流式更新函数 - 优化支持后端status字段
         let currentStreamMessages = {};
@@ -1536,8 +1526,6 @@
         function updateStreamingMessage(containerId, content, status, role, messageId) {
             const messagesDiv = document.getElementById(containerId);
             const messageKey = `${containerId}_${role}_${messageId || 'default'}`;
-            
-            console.log(`流式消息更新: container=${containerId}, status=${status}, role=${role}, messageId=${messageId}, content=${content ? content.substring(0, 50) + '...' : '空'}`);
             
             // 处理start状态 - 开始新的消息流
             if (status === 'start') {
@@ -1583,7 +1571,6 @@
                             const textElement = messageContent.querySelector('span');
                             if (textElement) {
                                 textElement.textContent += content;
-                                console.log(`追加内容: ${content.substring(0, 30)}...`);
                             } else {
                                 // 如果没有文本元素但需要显示内容，创建新的
                                 const textElement = document.createElement('span');
@@ -1641,12 +1628,15 @@
             // 语音消息直接使用语音指示器作为内容，不嵌套在message-content中
             messageDiv.innerHTML = voiceElement;
             
-            // 简化版语音消息插入逻辑 - 所有消息都添加到末尾
-            messagesDiv.appendChild(messageDiv);
-            console.log(`${sender}语音消息添加到消息容器末尾`);
+            // 语音消息插入到消息列表的末尾（最后一条消息的上方）
+            const lastChild = messagesDiv.lastChild;
+            if (lastChild) {
+                messagesDiv.insertBefore(messageDiv, lastChild);
+            } else {
+                messagesDiv.appendChild(messageDiv);
+            }
             
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            console.log('语音消息添加完成');
         }
         
         // 更新状态（支持双语）
