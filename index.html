@@ -40,6 +40,8 @@
             overflow: hidden;
             height: 90vh;
             max-height: 800px;
+            display: flex;
+            flex-direction: column;
         }
         
         .tabs {
@@ -303,11 +305,7 @@
         }
 
         
-        .tab-content {
-            display: none;
-            height: calc(100% - 180px);
-            position: relative;
-        }
+
         
         .chat-messages {
             flex: 1;
@@ -503,10 +501,6 @@
         
         /* 中等屏幕优化 - 针对692px左右宽度 */
         @media (max-width: 768px) and (min-width: 481px) {
-            .tab-content {
-                height: calc(100% - 110px);
-            }
-            
             .input-area {
                 padding: 15px 18px;
             }
@@ -560,10 +554,6 @@
             
             /* 更窄屏幕的优化 - 只在480px以下应用固定宽度 */
             @media (max-width: 480px) {
-                .tab-content {
-                    height: calc(100% - 105px);
-                }
-                
                 .input-area {
                     padding: 10px 12px;
                     gap: 6px;
@@ -608,10 +598,6 @@
             
             /* 超窄屏幕优化 */
             @media (max-width: 360px) {
-                .tab-content {
-                    height: calc(100% - 100px);
-                }
-                
                 .input-area {
                     padding: 8px 10px;
                 }
@@ -858,15 +844,11 @@
             </button>
         </div>
         
-        <!-- Tab 1: 文本与语音聊天 -->
-        <div class="tab-content" id="tab1">
-            <div class="status-indicator" id="status1">
-                连接状态：未连接
-            </div>
-            <div class="chat-messages" id="messages1"></div>
+        <!-- 共享状态指示器和消息区域 -->
+        <div class="status-indicator" id="status">
+            连接状态：未连接
         </div>
-        
-
+        <div class="chat-messages" id="messages"></div>
         
         <!-- 共享输入区域 -->
         <div class="input-area active">
@@ -976,21 +958,21 @@
                         const indicatorColor = interpolateInferno(probs.isSpeech / 2);
                         document.body.style.setProperty("--indicator-color", indicatorColor);
                         
-                        // 更新status1的视觉效果（现在只有tab1）
-                        const status1 = document.getElementById('status1');
-                        if (status1) {
+                        // 更新status的视觉效果
+                        const status = document.getElementById('status');
+                        if (status) {
                             // 根据语音概率动态调整视觉效果
                             const speechProbability = probs.isSpeech;
                             
                             // 当检测到语音时添加活动状态
                             if (speechProbability > 0.3) {
-                                status1.classList.add('vad-active');
+                                status.classList.add('vad-active');
                                 // 动态调整背景渐变强度
-                                status1.style.background = `radial-gradient(circle at center, ${indicatorColor} ${speechProbability * 50}%, #f8f9fa 100%)`;
+                                status.style.background = `radial-gradient(circle at center, ${indicatorColor} ${speechProbability * 50}%, #f8f9fa 100%)`;
                             } else {
-                                status1.classList.remove('vad-active');
+                                status.classList.remove('vad-active');
                                 // 恢复默认渐变
-                                status1.style.background = `radial-gradient(circle at center, var(--indicator-color, #f8f9fa) 0%, #f8f9fa 100%)`;
+                                status.style.background = `radial-gradient(circle at center, var(--indicator-color, #f8f9fa) 0%, #f8f9fa 100%)`;
                             }
                         }
                     },
@@ -1013,13 +995,13 @@
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
                             const messageId = 'msg_' + Date.now();
                             const voiceMessageElement = createUserVoiceMessageElement(base64);
-                            addVoiceMessage('messages1', voiceMessageElement, 'user',messageId);
+                            addVoiceMessage('messages', voiceMessageElement, 'user',messageId);
                             
                             // 如果WebSocket连接正常，发送音频数据
                             if (ws && ws.readyState === WebSocket.OPEN) {
                                 // 设置等待状态
                                 isWaitingForResponse = true;
-                                updateStatus('status1', '正在处理语音...', false);
+                                updateStatus('status', '正在处理语音...', false);
                                 
                                 ws.send(JSON.stringify({
                                     type: 'audio',
@@ -1126,23 +1108,23 @@
             const volumeLabel = document.querySelector('.audio-controls span:first-child');
             if (volumeLabel) volumeLabel.innerHTML = elements['volume-label'];
             
-            // 更新状态指示器（现在只有status1）
-            const status1 = document.getElementById('status1');
+            // 更新状态指示器（现在使用共享的status）
+            const status = document.getElementById('status');
             
-            // 更新状态1的双语文本（同时检查中英文状态）
-            if (status1.textContent.includes('已连接') || status1.textContent.includes('Connected')) {
-                status1.textContent = lang === 'zh' ? '连接状态：已连接' : 'Status: Connected';
-            } else if (status1.textContent.includes('已断开') || status1.textContent.includes('Disconnected')) {
-                status1.textContent = lang === 'zh' ? '连接状态：已断开' : 'Status: Disconnected';
-            } else if (status1.textContent.includes('连接错误') || status1.textContent.includes('Connection Error')) {
-                status1.textContent = lang === 'zh' ? '连接状态：连接错误' : 'Status: Connection Error';
-            } else if (status1.textContent.includes('尝试重新连接') || status1.textContent.includes('Attempting to reconnect')) {
-                const matches = status1.textContent.match(/(?:尝试重新连接|Attempting to reconnect) \((\d+)\/(\d+)\)\.\.\./);
+            // 更新状态的双语文本（同时检查中英文状态）
+            if (status.textContent.includes('已连接') || status.textContent.includes('Connected')) {
+                status.textContent = lang === 'zh' ? '连接状态：已连接' : 'Status: Connected';
+            } else if (status.textContent.includes('已断开') || status.textContent.includes('Disconnected')) {
+                status.textContent = lang === 'zh' ? '连接状态：已断开' : 'Status: Disconnected';
+            } else if (status.textContent.includes('连接错误') || status.textContent.includes('Connection Error')) {
+                status.textContent = lang === 'zh' ? '连接状态：连接错误' : 'Status: Connection Error';
+            } else if (status.textContent.includes('尝试重新连接') || status.textContent.includes('Attempting to reconnect')) {
+                const matches = status.textContent.match(/(?:尝试重新连接|Attempting to reconnect) \((\d+)\/(\d+)\)\.\.\./);
                 if (matches) {
-                    status1.textContent = lang === 'zh' ? `尝试重新连接 (${matches[1]}/${matches[2]})...` : `Attempting to reconnect (${matches[1]}/${matches[2]})...`;
+                    status.textContent = lang === 'zh' ? `尝试重新连接 (${matches[1]}/${matches[2]})...` : `Attempting to reconnect (${matches[1]}/${matches[2]})...`;
                 }
-            } else if (status1.textContent.includes('连接失败') || status1.textContent.includes('Connection failed')) {
-                status1.textContent = lang === 'zh' ? '连接失败，请刷新页面重试' : 'Connection failed, please refresh the page';
+            } else if (status.textContent.includes('连接失败') || status.textContent.includes('Connection failed')) {
+                status.textContent = lang === 'zh' ? '连接失败，请刷新页面重试' : 'Connection failed, please refresh the page';
             }
         }
         
@@ -1164,25 +1146,22 @@
         function switchTab(tabIndex) {
             currentTab = tabIndex;
             const tabs = document.querySelectorAll('.tab');
-            const contents = document.querySelectorAll('.tab-content');
             const inputArea = document.querySelector('.input-area');
             
-            // 由于tab2已被删除，只处理tab1
+            // 更新tab激活状态
+            tabs.forEach((tab, i) => {
+                const isActive = i === tabIndex;
+                tab.classList.toggle('active', isActive);
+            });
+            
+            // 控制输入区域显示/隐藏
             if (tabIndex === 0) {
-                tabs.forEach((tab, i) => {
-                    const isActive = i === tabIndex;
-                    tab.classList.toggle('active', isActive);
-                    if (contents[i]) {
-                        contents[i].classList.toggle('active', isActive);
-                    }
-                });
-                
                 // 文本与语音聊天模式：显示输入区域
                 inputArea.style.display = 'flex';
                 stopVAD();              
             } else {
-                // 如果尝试切换到不存在的tab2，自动切换到tab1
-                switchTab(0);
+                // 实时语音对话模式：隐藏输入区域
+                inputArea.style.display = 'none';
             }
         }
         
@@ -1195,7 +1174,7 @@
             isManualClose = false;
             
             ws.onopen = () => {
-                const statusId = 'status1'; // 现在只有tab1
+                const statusId = 'status'; // 现在使用共享的status
                 const statusText = '已连接';
                 updateStatus(statusId, statusText, true);
                 reconnectAttempts = 0;
@@ -1212,7 +1191,7 @@
             
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
-                const messagesId = 'messages1'; // 现在只有tab1
+                const messagesId = 'messages'; // 现在使用共享的messages
                 
                 // 根据后端ResponseHandler的消息格式处理
                 if (data.type === 'text') {
@@ -1363,8 +1342,8 @@
                     sendBtn.disabled = false;
                 }
                 
-                // 更新连接状态（现在只有status1）
-                updateStatus('status1', '连接错误', false);
+                // 更新连接状态（现在使用共享的status）
+                updateStatus('status', '连接错误', false);
                 
                 // 如果是语音模式，重置录音状态
                 if (currentTab === 1) {
@@ -1389,7 +1368,7 @@
             
             ws.onerror = (error) => {
                 console.error('WebSocket连接错误:', error);
-                updateStatus('status1', '连接错误', false);
+                updateStatus('status', '连接错误', false);
                 
                 // 重置等待状态
                 isWaitingForResponse = false;
@@ -1412,7 +1391,7 @@
             };
             
             ws.onclose = () => {
-                updateStatus('status1', '已断开', false);
+                updateStatus('status', '已断开', false);
                 // 只有在非主动关闭的情况下才尝试重连
                 if (!isManualClose) {
                     attemptReconnect(() => connectWebSocket(mode));
@@ -1428,15 +1407,15 @@
                 reconnectAttempts++;
                 const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1);
                 
-                // 使用状态映射表中的键来确保双语支持（现在只有status1）
-                updateStatus('status1', 
+                // 使用状态映射表中的键来确保双语支持（现在使用共享的status）
+                updateStatus('status', 
                            `尝试重新连接 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`, false);
                 
                 setTimeout(() => {
                     connectFunction();
                 }, delay);
             } else {
-                updateStatus('status1', 
+                updateStatus('status', 
                            '连接失败，请刷新页面重试', false);
             }
         }
@@ -1474,7 +1453,7 @@
                 console.log('WS消息发送:', messageData);
                 
                 // 添加用户消息，并记录消息ID
-                addMessage('messages1', message, 'user', messageId);
+                addMessage('messages', message, 'user', messageId);
                 console.log(`添用户消息已添加到聊天页面，message_id: ${messageId}, message: ${message}`);
                 
                 // 清空输入框并聚焦
@@ -1488,7 +1467,7 @@
                 console.log('发送按钮已禁用，等待回复状态已设置');
                 
                 // 更新状态显示
-                updateStatus('status1', '等待回复...', true);
+                updateStatus('status', '等待回复...', true);
                 console.log('状态已更新为"等待回复..."');
                 
             } else {
@@ -1592,7 +1571,7 @@
                     const messageId = 'msg_' + Date.now();
                     // 录制完成后立即显示语音气泡
                     const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
-                    addVoiceMessage('messages1', voiceMessageElement, 'user',messageId);
+                    addVoiceMessage('messages', voiceMessageElement, 'user',messageId);
                     
                     // 禁用发送按钮并设置等待状态
                     const sendBtn = document.querySelector('.btn-primary');
