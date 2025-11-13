@@ -947,7 +947,6 @@
             
             connectWebSocket('chat');
             setupInputValidation();
-            setupAccessibility();
             setupLanguageSelector();
             // 初始化界面语言
             updateInterfaceLanguage(currentLanguage);
@@ -1196,46 +1195,6 @@
             sendBtn.disabled = true;
         }
         
-        // 设置可访问性
-        function setupAccessibility() {
-            // 为所有按钮添加ARIA标签
-            const buttons = document.querySelectorAll('button');
-            buttons.forEach(btn => {
-                if (!btn.getAttribute('aria-label')) {
-                    btn.setAttribute('aria-label', btn.textContent.trim());
-                }
-            });
-            
-            // 为输入框添加ARIA标签
-            const textInput = document.getElementById('textInput');
-            textInput.setAttribute('aria-label', '输入消息');
-            
-            // 为标签页添加键盘导航
-            const tabs = document.querySelectorAll('.tab');
-            tabs.forEach((tab, index) => {
-                tab.setAttribute('role', 'tab');
-                tab.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
-                tab.setAttribute('tabindex', index === 0 ? '0' : '-1');
-                
-                tab.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        switchTab(index);
-                    } else if (e.key === 'ArrowRight') {
-                        e.preventDefault();
-                        const nextIndex = (index + 1) % tabs.length;
-                        switchTab(nextIndex);
-                        tabs[nextIndex].focus();
-                    } else if (e.key === 'ArrowLeft') {
-                        e.preventDefault();
-                        const prevIndex = (index - 1 + tabs.length) % tabs.length;
-                        switchTab(prevIndex);
-                        tabs[prevIndex].focus();
-                    }
-                });
-            });
-        }
-        
         // 切换标签页
         function switchTab(tabIndex) {
             currentTab = tabIndex;
@@ -1245,27 +1204,12 @@
             tabs.forEach((tab, i) => {
                 const isActive = i === tabIndex;
                 tab.classList.toggle('active', isActive);
-                tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                tab.setAttribute('tabindex', isActive ? '0' : '-1');
                 contents[i].classList.toggle('active', isActive);
             });
             
             if (tabIndex === 0) {
-                stopVAD();
-                // 切换到文本聊天界面，保持当前连接状态
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    connectWebSocket('chat');
-                }
-                // 已有连接时不需要发送模式切换消息，继续使用当前模式
-               
+                stopVAD();              
             } else {
-                // 切换到语音聊天界面，保持当前连接状态
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    connectWebSocket('voice');
-                }
-                // 已有连接时不需要发送模式切换消息，继续使用当前模式
-                
-                // 延迟启动VAD检测，确保WebSocket连接已建立
                 setTimeout(() => {
                     startVAD();
                 }, 500);
