@@ -912,9 +912,7 @@
                             const wavBuffer = vad.utils.encodeWAV(audioData);
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
                             const messageId = 'msg_' + Date.now();
-                            const voiceMessageElement = createUserVoiceMessageElement(base64);
-                            addVoiceMessage(voiceMessageElement, 'user',messageId);
-                            
+                            addVoiceMessage( 'user',messageId,base64);
                             // 如果WebSocket连接正常，发送音频数据
                             if (ws && ws.readyState === WebSocket.OPEN) {
                                 // 设置等待状态
@@ -1103,7 +1101,6 @@
             let audioQueue = [];
             let isPlayingAudio = false;
             let currentVoiceMessageElement = null;
-            let currentVoiceMessageId = null;
             
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);// 现在使用共享的messages
@@ -1174,11 +1171,7 @@
                 if (data.status === 'continue') {
                     // 处理句子级别的音频消息
                     if (!currentVoiceMessageElement) {
-                        // 创建单个语音气泡
-                        currentVoiceMessageElement = createAssistantVoiceMessageElement();
-                        currentVoiceMessageId = data.message_id;
-                        // 使用当前消息ID关联助手语音消息到对应的用户消息
-                        addVoiceMessage(currentVoiceMessageElement, data.role, currentVoiceMessageId);
+                        addVoiceMessage( data.role, data.message_id,"");
                     }
                     
                     // 检查音频数据是否有效
@@ -1339,25 +1332,19 @@
             }
         }
         
-        // 创建用户语音消息元素
-        function createUserVoiceMessageElement(base64Audio) {
+        // 创建语音消息元素（统一函数）
+        function createVoiceMessageElement(sender, base64Audio = null) {
             const audioId = 'audio-' + Date.now();
+            const isUser = sender === 'user';
+            const cssClass = isUser ? 'user-voice-message-indicator' : 'assistant-voice-message-indicator';
+            
+            // 只有用户语音消息需要onclick事件和base64Audio参数
+            const onClickAttribute = isUser && base64Audio 
+                ? `onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')"` 
+                : '';
             
             return `
-                <div class="user-voice-message-indicator" id="${audioId}" onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')">
-                    <div class="play-btn">
-                        <i class="fas fa-play"></i>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // 创建助手语音消息元素
-        function createAssistantVoiceMessageElement() {
-            const audioId = 'audio-' + Date.now();
-            
-            return `
-                <div class="assistant-voice-message-indicator" id="${audioId}">
+                <div class="${cssClass}" id="${audioId}" ${onClickAttribute}>
                     <div class="play-btn">
                         <i class="fas fa-play"></i>
                     </div>
@@ -1432,9 +1419,7 @@
                 reader.onload = () => {
                     const base64Audio = reader.result.split(',')[1];
                     const messageId = 'msg_' + Date.now();
-                    // 录制完成后立即显示语音气泡
-                    const voiceMessageElement = createUserVoiceMessageElement(base64Audio);
-                    addVoiceMessage( voiceMessageElement, 'user',messageId);
+                    addVoiceMessage('user',messageId,base64Audio);
                     
                     // 禁用发送按钮并设置等待状态
                     const sendBtn = document.querySelector('.btn-primary');
@@ -1571,7 +1556,8 @@
         
 
         // 添加语音消息（语音指示器直接作为消息）- 优化消息关联逻辑
-        function addVoiceMessage(voiceElement, sender, messageId = null) {
+        function addVoiceMessage(sender, messageId = null, base64Audio = null) {
+            const voiceElement = createVoiceMessageElement(sender, base64Audio);
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
