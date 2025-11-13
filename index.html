@@ -28,7 +28,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
         }
         
         .container {
@@ -47,7 +46,6 @@
         .tabs {
             display: flex;
             background: #f8f9fa;
-            border-bottom: 2px solid #e9ecef;
         }
         
         .tab {
@@ -128,22 +126,14 @@
             gap: 5px;
         }
         
-        /* 语言选择器样式 */
-        .language-selector {
-            display: flex;
-            gap: 10px;
-            padding: 0;
-            background: none;
-            border-bottom: none;
-        }
-        
+        /* 语言选择器样式 */        
         .language-btn {
-            padding: 5px 12px;
+            padding: 6px 20px;
             border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 16px;
+            border-radius: 32px;
             background: rgba(255, 255, 255, 0.1);
             color: white;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -810,11 +800,9 @@
                 <!-- 右侧控制组件 -->
                 <div class="header-controls">
                     <!-- 语言选择器 -->
-                    <div class="language-selector">
                         <button class="language-btn" id="languageToggle" onclick="toggleLanguage()">
                             中
                         </button>
-                    </div>
                     <!-- 自定义TTS引擎选择器 -->
                     <div class="custom-tts-selector" id="customTtsSelector">
                         <div class="custom-tts-select" id="customTtsSelect">pyttsx3</div>
