@@ -1477,8 +1477,8 @@
                 ? `onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')"` 
                 : '';
             
-            // 为助手语音消息添加数据属性，便于后续更新
-            const dataAttributes = messageId ? `data-message-id="${messageId}"` : '';
+            // 为语音消息添加数据属性，便于后续更新，包含 messageId 和 role
+            const dataAttributes = messageId ? `data-message-id="${messageId}_${role}"` : '';
             
             return `
                 <div class="${cssClass}" id="${audioId}" ${onClickAttribute} ${dataAttributes}>
@@ -1567,8 +1567,8 @@
                     if (!isPlayingAudio) {
                         console.log('启动音频队列播放');
                                // 更新播放按钮状态为播放中
-                        updateAudioPlaybackButton(message_id, true);
-                        playAudioQueue(message_id);
+                        updateAudioPlaybackButton(message_id, true, role);
+                        playAudioQueue(message_id,role);
 
                     }
                 } else {
@@ -1593,8 +1593,8 @@
             // 将所有音频数据合并为一个完整的音频（用于点击播放）
             const combinedAudioData = audioDataList.join('');
              
-            // 更新语音指示器，添加点击播放功能
-            const voiceIndicator =  document.querySelector(`[data-message-id="${messageId}"]`);
+            // 更新语音指示器，添加点击播放功能，使用新的 data-message-id 格式
+            const voiceIndicator =  document.querySelector(`[data-message-id="${messageId}_${role}"]`);
             if (voiceIndicator) {
                 const audioId = voiceIndicator.id;
                 voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${audioId}', '${combinedAudioData}')`);
@@ -1604,11 +1604,11 @@
             }
         }
                    // 播放音频队列 - 优化支持句子级别TTS
-            async function playAudioQueue(message_id) {
+            async function playAudioQueue(message_id,role) {
                 if (audioQueue.length === 0) {
                     isPlayingAudio = false;
                     console.log('音频队列播放完成');
-                    updateAudioPlaybackButton(message_id, false);
+                    updateAudioPlaybackButton(message_id, false, role);
                     return;
                 }
                 
@@ -1623,11 +1623,11 @@
                     
                     console.log('音频块播放完成');
                     // 播放完成后更新按钮状态
-                    playAudioQueue(message_id);
+                    playAudioQueue(message_id,role);
                 } catch (error) {
                     console.error('音频播放失败:', error);
                     // 播放失败时也要更新按钮状态
-                    playAudioQueue(message_id);
+                    playAudioQueue(message_id,role);
                 }
             }
             
@@ -1717,8 +1717,9 @@
             }
             
             // 更新音频播放按钮状态
-            function updateAudioPlaybackButton(messageId, isPlaying) {
-                const voiceIndicator = document.querySelector(`[data-message-id="${messageId}"]`);
+            function updateAudioPlaybackButton(messageId, isPlaying, role) {
+                // 根据角色动态构建 data-message-id
+                const voiceIndicator = document.querySelector(`[data-message-id="${messageId}_${role}"]`);
                 if (voiceIndicator) {
                     const playBtn = voiceIndicator.querySelector('.play-btn i');
                     if (playBtn) {
