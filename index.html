@@ -1447,6 +1447,17 @@
                 // 清理消息流状态
                 delete currentStreamMessages[messageKey];
                 console.log(`结束消息流: ${messageKey}`);
+                
+                // 重置等待状态，启用发送按钮
+                isWaitingForResponse = false;
+                const sendBtn = document.querySelector('.btn-primary');
+                if (sendBtn) {
+                    sendBtn.disabled = false;
+                }
+                
+                // 更新状态显示
+                updateStatus('status', '已连接', true);
+                console.log('AI回复完成，重置等待状态');
             }
             
             // 确保消息容器滚动到底部
