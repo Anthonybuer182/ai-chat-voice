@@ -1117,10 +1117,7 @@
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
-            
-            // 标记为主动连接，不是重连
-            isManualClose = false;
-            
+    
             ws.onopen = () => {
                 const statusId = 'status'; // 现在使用共享的status
                 const statusText = '已连接';
@@ -1162,10 +1159,7 @@
             
             ws.onclose = () => {
                 updateStatus('status', '已断开', false);
-                // 只有在非主动关闭的情况下才尝试重连
-                if (!isManualClose) {
-                    attemptReconnect(() => connectWebSocket());
-                }
+                attemptReconnect(() => connectWebSocket());
             };
         }
         
