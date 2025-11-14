@@ -864,6 +864,7 @@
             setupInputValidation();
             setupLanguageSelector();
             updateInterfaceLanguage(currentLanguage);
+            setupCustomTtsSelector();
         }        
         // 页面加载时初始化VAD
         window.onload = function() {
@@ -1876,10 +1877,14 @@
             }, 3000);
         }
         
-        // 获取当前TTS引擎值
+        // 获取当前TTS引擎值（带缓存优化）
+        let cachedTtsEngine = null;
         function getCurrentTtsEngine() {
-            const savedTtsEngine = localStorage.getItem('selectedTtsEngine');
-            return savedTtsEngine || 'pyttsx3'; // 默认使用pyttsx3
+            // 如果缓存为空，从localStorage读取
+            if (cachedTtsEngine === null) {
+                cachedTtsEngine = localStorage.getItem('selectedTtsEngine') || 'pyttsx3';
+            }
+            return cachedTtsEngine;
         }
         
         // 自定义TTS选择器功能
@@ -1938,8 +1943,9 @@
                     options.forEach(opt => opt.classList.remove('selected'));
                     this.classList.add('selected');
                     
-                    // 保存到localStorage
+                    // 保存到localStorage并更新缓存
                     localStorage.setItem('selectedTtsEngine', value);
+                    cachedTtsEngine = newEngine;
                     
                     // 关闭下拉菜单
                     selector.classList.remove('active');
@@ -1975,7 +1981,6 @@
         window.addEventListener('load', function() {
             console.log('页面加载完成，开始初始化应用');
             init();
-            setupCustomTtsSelector();
             console.log('应用初始化完成');
         });
         
