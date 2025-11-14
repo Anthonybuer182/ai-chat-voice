@@ -1097,135 +1097,22 @@
                 console.log('WS连接成功');
             };
             
-            // 统一语音播放队列管理
-            let audioQueue = [];
-            let isPlayingAudio = false;
-            let currentVoiceMessageElement = null;
+
             
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);// 现在使用共享的messages
                 console.log('WS消息接收:', data);
                 // 根据后端ResponseHandler的消息格式处理
-                if (data.type === 'text') {
-                    // 处理文本消息流
-                     handleTextMessage(data);
-                } else if (data.type === 'audio') {
-                    // 处理音频消息（句子级别的TTS）
-                    handleAudioMessage(data);
-                } else if (data.status === 'start') {
-                    // 处理开始状态消息
-                    handleTextMessage(data);
-                } else if (data.status === 'end') {
-                    // 处理结束状态消息
-                    handleTextMessage(data);
-                } else if (data.type === 'error') {
+                if (data.type === 'error') {
                     // 处理错误消息
                     handleErrorMessage(data);
-                } 
+                }else{
+                    handleTextMessage(data);
+                    handleAudioMessage(data);
+                }
+                
             };
-            
-            // 播放音频队列 - 优化支持句子级别TTS
-            async function playAudioQueue() {
-                if (audioQueue.length === 0) {
-                    isPlayingAudio = false;
-                    console.log('音频队列播放完成');
-                    return;
-                }
-                
-                isPlayingAudio = true;
-                const audioItem = audioQueue.shift();
-                
-                console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块`);
-                
-                try {
-                    // 播放当前音频
-                    await playAudio(audioItem.base64Audio);
-                    
-                    console.log('音频块播放完成');
-                    
-                    // 播放完成后继续播放下一个
-                    setTimeout(() => {
-                        playAudioQueue();
-                    }, 50); // 减少延迟，确保句子间流畅衔接
-                } catch (error) {
-                    console.error('音频播放失败:', error);
-                    // 继续播放下一个，不中断整个音频流
-                    setTimeout(() => {
-                        playAudioQueue();
-                    }, 50);
-                }
-            }
-            
-            // 播放音频函数
-            function playAudio(base64Audio) {
-                return new Promise((resolve, reject) => {
-                    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-                    audio.onended = () => resolve();
-                    audio.onerror = () => reject(new Error('音频播放失败'));
-                    audio.play().catch(reject);
-                });
-            }
-            
-            // 处理音频消息（句子级别的TTS）
-            function handleAudioMessage(data) {                
-                if (data.status === 'continue') {
-                    // 处理句子级别的音频消息
-                    if (!currentVoiceMessageElement) {
-                        addVoiceMessage( data.role, data.message_id,"");
-                    }
-                    
-                    // 检查音频数据是否有效
-                    if (data.content && data.content.length > 100) {                        
-                        // 将音频添加到播放队列
-                        audioQueue.push({
-                            base64Audio: data.content,
-                            priority: 0 // 后端按顺序发送，不需要优先级排序
-                        });
-                        
-                        console.log(`音频已添加到队列，当前队列长度: ${audioQueue.length}`);
-                        
-                        // 开始播放队列
-                        if (!isPlayingAudio) {
-                            console.log('启动音频队列播放');
-                            playAudioQueue();
-                        }
-                    } else {
-                        console.warn('收到无效或过短的音频数据，跳过处理');
-                    }
-                }
-            }
-            
-            // 处理错误消息 - 优化错误处理和状态管理
-            function handleErrorMessage(data) {
-                console.error('WebSocket错误消息:', data);
-                
-                // 显示错误信息
-                const errorMessage = data.content || '发生未知错误';
-                showError(errorMessage);
-                
-                // 重置等待状态
-                isWaitingForResponse = false;
-                
-                // 启用发送按钮
-                const sendBtn = document.querySelector('.btn-primary');
-                if (sendBtn) {
-                    sendBtn.disabled = false;
-                }
-                
-                // 更新连接状态（现在使用共享的status）
-                updateStatus('status', '连接错误', false);
-                
-                // 如果是语音模式，重置录音状态
-                if (currentTab === 1) {
-                    if (isRecording) {
-                        stopRecording();
-                    }
-                    updateRecordButton(false);
-                }
-                
-                console.log('错误处理完成，状态已重置');
-            }
-            
+                       
             ws.onerror = (error) => {
                 console.error('WebSocket连接错误:', error);
                 updateStatus('status', '连接错误', false);
@@ -1332,25 +1219,7 @@
             }
         }
         
-        // 创建语音消息元素（统一函数）
-        function createVoiceMessageElement(sender, base64Audio = null) {
-            const audioId = 'audio-' + Date.now();
-            const isUser = sender === 'user';
-            const cssClass = isUser ? 'user-voice-message-indicator' : 'assistant-voice-message-indicator';
-            
-            // 只有用户语音消息需要onclick事件和base64Audio参数
-            const onClickAttribute = isUser && base64Audio 
-                ? `onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')"` 
-                : '';
-            
-            return `
-                <div class="${cssClass}" id="${audioId}" ${onClickAttribute}>
-                    <div class="play-btn">
-                        <i class="fas fa-play"></i>
-                    </div>
-                </div>
-            `;
-        }
+       
         
         // 切换录音
         async function toggleRecording() {
@@ -1461,11 +1330,12 @@
              messagesDiv.appendChild(messageDiv);
              messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
+        
         // 统一的消息流式更新函数 - 优化支持后端status字段
         let currentStreamMessages = {};
         
         function handleTextMessage(data) {
-            const { role, content, status, message_id } = data;
+            const { role,type, content, status, message_id } = data;
             const messagesDiv = document.getElementById('messages');
             const messageKey = `${messagesDiv.id}_${role}_${message_id || 'default'}`;
             
@@ -1493,7 +1363,7 @@
             }
             
             // 处理continue状态 - 更新消息内容
-            else if (status === 'continue' && currentStreamMessages[messageKey]) {
+            else if (status === 'continue' && type === 'text' && currentStreamMessages[messageKey]) {
                 const messageContent = currentStreamMessages[messageKey].querySelector('.message-content');
                 if (messageContent) {
                     const thinkingDots = messageContent.querySelector('.thinking-dots');
@@ -1553,7 +1423,30 @@
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
         }
-        
+
+
+
+        // 处理音频消息
+
+         // 创建语音消息元素（统一函数）
+        function createVoiceMessageElement(sender, base64Audio = null) {
+            const audioId = 'audio-' + Date.now();
+            const isUser = sender === 'user';
+            const cssClass = isUser ? 'user-voice-message-indicator' : 'assistant-voice-message-indicator';
+            
+            // 只有用户语音消息需要onclick事件和base64Audio参数
+            const onClickAttribute = isUser && base64Audio 
+                ? `onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')"` 
+                : '';
+            
+            return `
+                <div class="${cssClass}" id="${audioId}" ${onClickAttribute}>
+                    <div class="play-btn">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
+            `;
+        }
 
         // 添加语音消息（语音指示器直接作为消息）- 优化消息关联逻辑
         function addVoiceMessage(sender, messageId = null, base64Audio = null) {
@@ -1600,6 +1493,112 @@
             const localizedText = statusTextMap[text] || text;
             status.textContent = localizedText;
             status.className = `status-indicator ${isConnected ? 'connected' : 'disconnected'}`;
+        }
+                    // 统一语音播放队列管理
+        let audioQueue = [];
+        let isPlayingAudio = false;
+        let currentVoiceMessageElement = null;
+        function handleAudioMessage(data) {   
+            const { role,type, content, status, message_id } = data;
+
+            if (status === 'continue'&& type === 'audio') {
+                // 处理句子级别的音频消息
+                if (!currentVoiceMessageElement) {
+                    addVoiceMessage( data.role, data.message_id,"");
+                }
+                
+                // 检查音频数据是否有效
+                if (data.content && data.content.length > 100) {                        
+                    // 将音频添加到播放队列
+                    audioQueue.push({
+                        base64Audio: data.content,
+                        priority: 0 // 后端按顺序发送，不需要优先级排序
+                    });
+                    
+                    console.log(`音频已添加到队列，当前队列长度: ${audioQueue.length}`);
+                    
+                    // 开始播放队列
+                    if (!isPlayingAudio) {
+                        console.log('启动音频队列播放');
+                        playAudioQueue();
+                    }
+                } else {
+                    console.warn('收到无效或过短的音频数据，跳过处理');
+                }
+            }else if(status === 'end' ){
+                
+            }
+        }
+                   // 播放音频队列 - 优化支持句子级别TTS
+            async function playAudioQueue() {
+                if (audioQueue.length === 0) {
+                    isPlayingAudio = false;
+                    console.log('音频队列播放完成');
+                    return;
+                }
+                
+                isPlayingAudio = true;
+                const audioItem = audioQueue.shift();
+                
+                console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块`);
+                
+                try {
+                    // 播放当前音频
+                    await playAudio(audioItem.base64Audio);
+                    
+                    console.log('音频块播放完成');
+                    
+                    // 播放完成后继续播放下一个
+                    setTimeout(() => {
+                        playAudioQueue();
+                    }, 50); // 减少延迟，确保句子间流畅衔接
+                } catch (error) {
+                    console.error('音频播放失败:', error);
+                    // 继续播放下一个，不中断整个音频流
+                    setTimeout(() => {
+                        playAudioQueue();
+                    }, 50);
+                }
+            }
+            
+            // 播放音频函数
+            function playAudio(base64Audio) {
+                return new Promise((resolve, reject) => {
+                    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+                    audio.onended = () => resolve();
+                    audio.onerror = () => reject(new Error('音频播放失败'));
+                    audio.play().catch(reject);
+                });
+            }
+        // 处理错误消息 - 优化错误处理和状态管理
+        function handleErrorMessage(data) {
+            console.error('WebSocket错误消息:', data);
+            
+            // 显示错误信息
+            const errorMessage = data.content || '发生未知错误';
+            showError(errorMessage);
+            
+            // 重置等待状态
+            isWaitingForResponse = false;
+            
+            // 启用发送按钮
+            const sendBtn = document.querySelector('.btn-primary');
+            if (sendBtn) {
+                sendBtn.disabled = false;
+            }
+            
+            // 更新连接状态（现在使用共享的status）
+            updateStatus('status', '连接错误', false);
+            
+            // 如果是语音模式，重置录音状态
+            if (currentTab === 1) {
+                if (isRecording) {
+                    stopRecording();
+                }
+                updateRecordButton(false);
+            }
+            
+            console.log('错误处理完成，状态已重置');
         }
         
         // 更新录音按钮
