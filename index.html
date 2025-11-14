@@ -1397,30 +1397,20 @@
                 const messageContent = currentStreamMessages[messageKey].querySelector('.message-content');
                 if (messageContent) {
                     const thinkingDots = messageContent.querySelector('.thinking-dots');
-                    
                     // 如果有内容需要显示
                     if (content && content.trim() !== '') {
-                        // 如果思考指示器还存在，先移除它并创建文本元素
+                        // 如果思考指示器还存在，先移除它
                         if (thinkingDots && thinkingDots.parentNode) {
                             thinkingDots.remove();
-                            
-                            const textElement = document.createElement('span');
-                            messageContent.appendChild(textElement);
-                            textElement.textContent = content;
-                            console.log(`移除思考指示器，添加新内容: ${content.substring(0, 30)}...`);
-                        } else {
-                            // 如果已经有文本元素，直接追加内容
-                            const textElement = messageContent.querySelector('span');
-                            if (textElement) {
-                                textElement.textContent += content;
-                            } else {
-                                // 如果没有文本元素但需要显示内容，创建新的
-                                const textElement = document.createElement('span');
-                                messageContent.appendChild(textElement);
-                                textElement.textContent = content;
-                                console.log(`创建新文本元素: ${content.substring(0, 30)}...`);
-                            }
                         }
+                        
+                        // 获取或创建文本元素
+                        let textElement = messageContent.querySelector('span');
+                        if (!textElement) {
+                            textElement = document.createElement('span');
+                            messageContent.appendChild(textElement);
+                        }
+                        textElement.textContent += content;
                     }
                 }
             }
@@ -1438,7 +1428,9 @@
                         if (!messageContent.querySelector('span')) {
                             const textElement = document.createElement('span');
                             messageContent.appendChild(textElement);
-                            textElement.textContent = '';
+                            if (content && content.trim() !== '') {
+                                textElement.textContent += content;
+                            }
                         }
                     }
                 }

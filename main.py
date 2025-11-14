@@ -1180,8 +1180,10 @@ async def websocket_chat(websocket: WebSocket):
                         # 语音识别失败
                         logger.warning("语音识别失败")
                         await manager.send_json(websocket, {
-                            "type": "error",
+                            "type": "text",
                             "content": "语音识别失败",
+                            "status": "end",
+                            "role": "user",
                             "message_id":message_id,
                             "timestamp": datetime.now().timestamp()
                         })
