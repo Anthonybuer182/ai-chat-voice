@@ -1498,15 +1498,17 @@
         let audioQueue = [];
         let isPlayingAudio = false;
         let currentVoiceMessageElement = null;
-        function handleAudioMessage(data) {   
+        function handleAudioMessage(data) {
             const { role,type, content, status, message_id } = data;
+            
+            if (role !== 'assistant') {
+                return;
+            }
 
-            if (status === 'continue'&& type === 'audio') {
-                // 处理句子级别的音频消息
-                if (!currentVoiceMessageElement) {
-                    addVoiceMessage( data.role, data.message_id,"");
-                }
-                
+           if (status === 'start') {
+                // 处理开始音频消息
+                addVoiceMessage( data.role, data.message_id,"");
+            }else if (status === 'continue'&& type === 'audio') {
                 // 检查音频数据是否有效
                 if (data.content && data.content.length > 100) {                        
                     // 将音频添加到播放队列
