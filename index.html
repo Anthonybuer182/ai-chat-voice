@@ -1337,8 +1337,7 @@
         function handleTextMessage(data) {
             const { role,type, content, status, message_id } = data;
             const messagesDiv = document.getElementById('messages');
-            const messageKey = `${type}_${role}_${message_id || 'default'}`;
-            
+            const messageKey = `${messagesDiv.id}_${role}_${message_id || 'default'}`;
             // 处理start状态 - 开始新的消息流
             if (status === 'start') {
                 // 创建新的消息元素
