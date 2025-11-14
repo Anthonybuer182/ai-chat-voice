@@ -1659,38 +1659,27 @@
                 });
             }
             
-            // 切换音频播放状态 - 支持语音消息的再次点击播放
+            // 切换音频播放状态 - 简单版本
             function toggleAudioPlayback(audioId, base64Audio) {
                 const audioElement = document.getElementById(audioId);
-                if (!audioElement) {
-                    console.error('找不到音频元素:', audioId);
-                    showNotification('找不到音频元素，请重试', 'error');
-                    return;
-                }
+                if (!audioElement) return;
                 
                 // 检查是否正在播放
                 const isPlaying = audioElement.classList.contains('playing');
                 
                 if (isPlaying) {
-                    // 停止播放
-                    stopAudioPlayback(audioId);
-                    showNotification('音频已停止', 'info');
+                    stopAudioPlayback(audioId);  // 停止播放
                 } else {
-                    // 开始播放
-                    startAudioPlayback(audioId, base64Audio);
-                    showNotification('开始播放音频', 'success');
+                    startAudioPlayback(audioId, base64Audio);  // 开始播放
                 }
             }
             
-            // 开始音频播放 - 优化视觉反馈和错误处理
+            // 开始音频播放 - 简单版本
             async function startAudioPlayback(audioId, base64Audio) {
                 const audioElement = document.getElementById(audioId);
                 const playBtn = audioElement.querySelector('.play-btn i');
                 
-                // 清除错误状态
-                audioElement.classList.remove('error');
-                
-                // 更新UI状态
+                // 设置播放状态
                 audioElement.classList.add('playing');
                 playBtn.className = 'fas fa-stop';
                 
@@ -1702,25 +1691,10 @@
                     audioElement.classList.remove('playing');
                     playBtn.className = 'fas fa-play';
                     
-                    // 显示播放完成提示
-                    showNotification('音频播放完成', 'success');
-                    
                 } catch (error) {
-                    console.error('音频播放失败:', error);
-                    
-                    // 设置错误状态
-                    audioElement.classList.add('error');
+                    // 播放失败时恢复状态
                     audioElement.classList.remove('playing');
-                    playBtn.className = 'fas fa-exclamation-triangle';
-                    
-                    // 显示错误提示
-                    showError('音频播放失败，请重试');
-                    
-                    // 3秒后自动恢复
-                    setTimeout(() => {
-                        audioElement.classList.remove('error');
-                        playBtn.className = 'fas fa-play';
-                    }, 3000);
+                    playBtn.className = 'fas fa-play';
                 }
             }
             
@@ -1813,44 +1787,6 @@
             setTimeout(() => {
                 errorDiv.style.animation = 'slideOutRight 0.3s ease';
                 setTimeout(() => errorDiv.remove(), 300);
-            }, 3000);
-        }
-        
-        // 显示通知消息
-        function showNotification(message, type = 'info') {
-            // 根据类型设置不同的颜色
-            const colors = {
-                info: '#17a2b8',
-                success: '#28a745',
-                warning: '#ffc107',
-                error: '#dc3545'
-            };
-            
-            const color = colors[type] || colors.info;
-            
-            // 创建优雅的通知提示
-            const notificationDiv = document.createElement('div');
-            notificationDiv.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: ${color};
-                color: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                z-index: 1000;
-                animation: slideInRight 0.3s ease;
-                font-weight: 500;
-            `;
-            notificationDiv.textContent = message;
-            
-            document.body.appendChild(notificationDiv);
-            
-            // 3秒后自动消失
-            setTimeout(() => {
-                notificationDiv.style.animation = 'slideOutRight 0.3s ease';
-                setTimeout(() => notificationDiv.remove(), 300);
             }, 3000);
         }
         
