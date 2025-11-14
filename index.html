@@ -1497,7 +1497,6 @@
                     // 统一语音播放队列管理
         let audioQueue = [];
         let isPlayingAudio = false;
-        let currentVoiceMessageElement = null;
         function handleAudioMessage(data) {
             const { role,type, content, status, message_id } = data;
             
@@ -1514,10 +1513,7 @@
                     // 将音频添加到播放队列
                     audioQueue.push({
                         base64Audio: data.content,
-                        priority: 0 // 后端按顺序发送，不需要优先级排序
                     });
-                    
-                    console.log(`音频已添加到队列，当前队列长度: ${audioQueue.length}`);
                     
                     // 开始播放队列
                     if (!isPlayingAudio) {
