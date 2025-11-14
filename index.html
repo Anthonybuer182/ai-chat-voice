@@ -1586,10 +1586,9 @@
             
             // 将所有音频数据合并为一个完整的音频（用于点击播放）
             const combinedAudioData = audioDataList.join('');
-            
+             
             // 更新语音指示器，添加点击播放功能
             const voiceIndicator =  document.querySelector(`[data-message-id="${messageId}"]`);
-            console.log("测试",voiceIndicator);
             if (voiceIndicator) {
                 const audioId = voiceIndicator.id;
                 voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${audioId}', '${combinedAudioData}')`);
