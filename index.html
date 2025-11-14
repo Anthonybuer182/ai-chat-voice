@@ -1479,7 +1479,7 @@
             
             // 语音消息插入到消息列表的末尾（最后一条消息的上方）
             const lastChild = messagesDiv.lastChild;
-            if (lastChild&&lastChild.classList.contains(role)) {
+            if (lastChild&&role==='assistant'&&lastChild.classList.contains(role)) {
                 messagesDiv.insertBefore(messageDiv, lastChild);
             } else {
                 messagesDiv.appendChild(messageDiv);
