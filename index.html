@@ -1462,11 +1462,6 @@
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
         }
-
-
-
-        // 处理音频消息
-
          // 创建语音消息元素（统一函数）- 优化支持助手语音消息
         function createVoiceMessageElement(role, base64Audio = null, messageId = null) {
             const audioId = 'audio-' + Date.now();
@@ -1493,7 +1488,7 @@
 
         // 添加语音消息（语音指示器直接作为消息）- 优化消息关联逻辑
         function addVoiceMessage(role, messageId = null, base64Audio = null) {
-            const voiceElement = createVoiceMessageElement(role, base64Audio);
+            const voiceElement = createVoiceMessageElement(role, base64Audio, messageId);
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${role}`;
@@ -1594,6 +1589,7 @@
             
             // 更新语音指示器，添加点击播放功能
             const voiceIndicator =  document.querySelector(`[data-message-id="${messageId}"]`);
+            console.log("测试",voiceIndicator);
             if (voiceIndicator) {
                 const audioId = voiceIndicator.id;
                 voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${audioId}', '${combinedAudioData}')`);
