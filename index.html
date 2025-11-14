@@ -1497,14 +1497,6 @@
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
-            
-            // 添加消息ID作为属性，用于关联
-            if (messageId) {
-                messageDiv.setAttribute('data-message-id', messageId);
-                console.log(`添加语音消息，message_id: ${messageId}, sender: ${sender}`);
-            }
-            
-            // 语音消息直接使用语音指示器作为内容，不嵌套在message-content中
             messageDiv.innerHTML = voiceElement;
             
             // 语音消息插入到消息列表的末尾（最后一条消息的上方）
@@ -1538,9 +1530,8 @@
             status.className = `status-indicator ${isConnected ? 'connected' : 'disconnected'}`;
         }
         // 统一语音播放队列管理
-        let audioQueue = [];
         let isPlayingAudio = false;
-        // 存储助手语音消息的音频数据，用于后续点击播放
+        // 存储助手语音消息的音频数据，用于后续点击播放和队列管理
         let assistantAudioMessages = new Map();
         
         function handleAudioMessage(data) {
@@ -1559,24 +1550,20 @@
             } else if (status === 'continue' && type === 'audio') {
                 // 检查音频数据是否有效
                 if (data.content && data.content.length > 100) {
-                    // 将音频添加到播放队列
-                    audioQueue.push({
-                        base64Audio: data.content,
-                        messageId: message_id
-                    });
-                    
-                    // 存储音频数据到消息映射中，用于后续点击播放
-                    if (assistantAudioMessages.has(message_id)) {
-                        assistantAudioMessages.get(message_id).push(data.content);
-                    } else {
-                        // 如果没有start消息，直接创建存储
-                        assistantAudioMessages.set(message_id, [data.content]);
+                    // 获取或创建消息数据
+                    let audioDataList = assistantAudioMessages.get(message_id);
+                    if (!audioDataList) {
+                        audioDataList = [];
+                        assistantAudioMessages.set(message_id, audioDataList);
                     }
+                    
+                    // 存储音频数据
+                    audioDataList.push(data.content);
                     
                     // 开始播放队列
                     if (!isPlayingAudio) {
                         console.log('启动音频队列播放');
-                        playAudioQueue();
+                        playAudioQueue(message_id);
                     }
                 } else {
                     console.warn('收到无效或过短的音频数据，跳过处理');
@@ -1617,35 +1604,20 @@
                 console.log('已为助手语音消息添加点击播放功能:', messageId);
             }
         }
-                   // 播放音频队列 - 优化支持句子级别TTS
-            async function playAudioQueue() {
-                if (audioQueue.length === 0) {
-                    isPlayingAudio = false;
-                    console.log('音频队列播放完成');
-                    return;
-                }
+                   // 播放音频队列 - 简化版本，按消息顺序播放
+            async function playAudioQueue(messageId) {
+                const audioDataList = assistantAudioMessages.get(messageId);
                 
-                isPlayingAudio = true;
-                const audioItem = audioQueue.shift();
-                
-                console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块，消息ID: ${audioItem.messageId}`);
-                
-                try {
-                    // 播放当前音频
-                    await playAudio(audioItem.base64Audio);
-                    
-                    console.log('音频块播放完成');
-                    
-                    // 播放完成后继续播放下一个
-                    setTimeout(() => {
-                        playAudioQueue();
-                    }, 50); // 减少延迟，确保句子间流畅衔接
-                } catch (error) {
-                    console.error('音频播放失败:', error);
-                    // 继续播放下一个，不中断整个音频流
-                    setTimeout(() => {
-                        playAudioQueue();
-                    }, 50);
+                // 播放该消息的所有音频块
+                for (let i = 0; i < audioDataList.length; i++) {
+                    try {
+                        console.log(`播放音频块 ${i + 1}/${audioDataList.length}`);
+                        await playAudio(audioDataList[i]);
+                        console.log('音频块播放完成');
+                    } catch (error) {
+                        console.error('音频播放失败:', error);
+                        // 继续播放下一个音频块
+                    }
                 }
             }
             
@@ -1657,21 +1629,6 @@
                     audio.onerror = () => reject(new Error('音频播放失败'));
                     audio.play().catch(reject);
                 });
-            }
-            
-            // 切换音频播放状态 - 简单版本
-            function toggleAudioPlayback(audioId, base64Audio) {
-                const audioElement = document.getElementById(audioId);
-                if (!audioElement) return;
-                
-                // 检查是否正在播放
-                const isPlaying = audioElement.classList.contains('playing');
-                
-                if (isPlaying) {
-                    stopAudioPlayback(audioId);  // 停止播放
-                } else {
-                    startAudioPlayback(audioId, base64Audio);  // 开始播放
-                }
             }
             
             // 开始音频播放 - 简单版本
