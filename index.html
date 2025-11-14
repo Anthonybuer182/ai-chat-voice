@@ -1634,7 +1634,7 @@
             // 全局变量跟踪当前播放的音频
             let currentPlayingAudio = null;
             
-            // 播放音频函数
+            // 播放音频函数 - 修复版本，支持多种音频格式
             function playAudio(base64Audio) {
                 return new Promise((resolve, reject) => {
                     // 如果已经有音频在播放，先停止它
@@ -1643,25 +1643,108 @@
                         currentPlayingAudio.currentTime = 0;
                     }
                     
-                    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+                    // 检测音频格式并设置正确的MIME类型
+                    let mimeType = 'audio/mp3'; // 默认MP3格式（助手语音）
+                    
+                    // 用户语音消息可能是WAV格式（来自VAD录制）
+                    if (base64Audio.startsWith('UklGR') || base64Audio.length > 10000) {
+                        // 如果base64数据以UklGR开头（WebM特征）或数据较大，可能是WebM格式
+                        mimeType = 'audio/webm';
+                        console.log('检测到WebM格式音频，使用audio/webm MIME类型');
+                    } else if (base64Audio.startsWith('RIFF') || base64Audio.length > 5000) {
+                        // 如果base64数据以RIFF开头（WAV特征）或数据适中，可能是WAV格式
+                        mimeType = 'audio/wav';
+                        console.log('检测到WAV格式音频，使用audio/wav MIME类型');
+                    } else {
+                        // 对于其他情况，尝试多种格式
+                        console.log('无法确定音频格式，尝试使用默认MP3格式');
+                    }
+                    
+                    console.log('创建音频元素，MIME类型:', mimeType, '数据长度:', base64Audio.length);
+                    
+                    // 创建音频元素
+                    const audio = new Audio(`data:${mimeType};base64,${base64Audio}`);
                     currentPlayingAudio = audio;
                     
+                    // 添加详细的事件监听器
+                    audio.onloadstart = () => {
+                        console.log('音频开始加载');
+                    };
+                    
+                    audio.onprogress = () => {
+                        console.log('音频加载进度:', audio.buffered.length > 0 ? audio.buffered.end(0) : 0);
+                    };
+                    
+                    audio.onloadedmetadata = () => {
+                        console.log('音频元数据已加载，时长:', audio.duration, '秒');
+                    };
+                    
+                    audio.onloadeddata = () => {
+                        console.log('音频数据已加载');
+                    };
+                    
+                    audio.oncanplay = () => {
+                        console.log('音频可以开始播放');
+                    };
+                    
+                    audio.oncanplaythrough = () => {
+                        console.log('音频可以完整播放');
+                    };
+                    
                     audio.onended = () => {
+                        console.log('音频播放完成');
                         currentPlayingAudio = null;
                         resolve();
                     };
-                    audio.onerror = () => {
+                    
+                    audio.onerror = (error) => {
+                        console.error('音频播放错误:', error);
+                        console.error('音频错误详情:', audio.error);
                         currentPlayingAudio = null;
-                        reject(new Error('音频播放失败'));
+                        reject(new Error('音频播放失败: ' + (audio.error ? audio.error.message : '未知错误')));
                     };
-                    audio.play().catch(reject);
+                    
+                    // 添加超时处理
+                    const timeoutId = setTimeout(() => {
+                        console.error('音频播放超时');
+                        if (currentPlayingAudio) {
+                            currentPlayingAudio.pause();
+                            currentPlayingAudio = null;
+                        }
+                        reject(new Error('音频播放超时'));
+                    }, 10000); // 10秒超时
+                    
+                    // 尝试播放音频
+                    audio.play().then(() => {
+                        console.log('音频播放启动成功');
+                        clearTimeout(timeoutId);
+                    }).catch((error) => {
+                        console.error('音频播放启动失败:', error);
+                        clearTimeout(timeoutId);
+                        
+                        // 如果播放失败，尝试使用不同的MIME类型
+                        console.log('尝试使用备用MIME类型播放...');
+                        const backupAudio = new Audio(`data:audio/wav;base64,${base64Audio}`);
+                        
+                        backupAudio.play().then(() => {
+                            console.log('备用音频播放成功');
+                            currentPlayingAudio = backupAudio;
+                            clearTimeout(timeoutId);
+                        }).catch((backupError) => {
+                            console.error('备用音频播放也失败:', backupError);
+                            reject(error);
+                        });
+                    });
                 });
             }
             
-            // 切换音频播放状态 - 简单版本
+            // 切换音频播放状态 - 修复版本
             function toggleAudioPlayback(audioId, base64Audio) {
                 const audioElement = document.getElementById(audioId);
-                if (!audioElement) return;
+                if (!audioElement) {
+                    console.error('找不到音频元素:', audioId);
+                    return;
+                }
                 
                 // 检查是否正在播放
                 const isPlaying = audioElement.classList.contains('playing');
@@ -1671,31 +1754,57 @@
                     stopAudioPlayback(audioId);  // 停止播放
                 } else {
                     console.log('点击开始播放:', audioId);
+                    
+                    // 检查音频数据是否有效
+                    if (!base64Audio || base64Audio.length < 100) {
+                        console.error('音频数据无效或过短:', base64Audio ? base64Audio.length : 'null');
+                        showError('音频数据无效，无法播放');
+                        return;
+                    }
+                    
                     startAudioPlayback(audioId, base64Audio);  // 开始播放
                 }
             }
             
-            // 开始音频播放 - 简单版本
+            // 开始音频播放 - 修复版本
             async function startAudioPlayback(audioId, base64Audio) {
                 const audioElement = document.getElementById(audioId);
+                if (!audioElement) {
+                    console.error('开始播放时找不到音频元素:', audioId);
+                    return;
+                }
+                
                 const playBtn = audioElement.querySelector('.play-btn i');
+                if (!playBtn) {
+                    console.error('找不到播放按钮:', audioId);
+                    return;
+                }
                 
                 // 设置播放状态
                 audioElement.classList.add('playing');
                 playBtn.className = 'fas fa-stop';
                 
                 try {
+                    console.log('开始播放音频，数据长度:', base64Audio.length);
+                    
                     // 播放音频
                     await playAudio(base64Audio);
+                    
+                    console.log('音频播放完成');
                     
                     // 播放完成后恢复状态
                     audioElement.classList.remove('playing');
                     playBtn.className = 'fas fa-play';
                     
                 } catch (error) {
+                    console.error('音频播放失败:', error);
+                    
                     // 播放失败时恢复状态
                     audioElement.classList.remove('playing');
                     playBtn.className = 'fas fa-play';
+                    
+                    // 显示错误信息
+                    showError('音频播放失败: ' + error.message);
                 }
             }
             
