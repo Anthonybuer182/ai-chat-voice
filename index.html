@@ -1617,12 +1617,29 @@
                 }
             }
             
+            // 全局变量跟踪当前播放的音频
+            let currentPlayingAudio = null;
+            
             // 播放音频函数
             function playAudio(base64Audio) {
                 return new Promise((resolve, reject) => {
+                    // 如果已经有音频在播放，先停止它
+                    if (currentPlayingAudio) {
+                        currentPlayingAudio.pause();
+                        currentPlayingAudio.currentTime = 0;
+                    }
+                    
                     const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-                    audio.onended = () => resolve();
-                    audio.onerror = () => reject(new Error('音频播放失败'));
+                    currentPlayingAudio = audio;
+                    
+                    audio.onended = () => {
+                        currentPlayingAudio = null;
+                        resolve();
+                    };
+                    audio.onerror = () => {
+                        currentPlayingAudio = null;
+                        reject(new Error('音频播放失败'));
+                    };
                     audio.play().catch(reject);
                 });
             }
@@ -1636,8 +1653,10 @@
                 const isPlaying = audioElement.classList.contains('playing');
                 
                 if (isPlaying) {
+                    console.log('点击停止播放:', audioId);
                     stopAudioPlayback(audioId);  // 停止播放
                 } else {
+                    console.log('点击开始播放:', audioId);
                     startAudioPlayback(audioId, base64Audio);  // 开始播放
                 }
             }
@@ -1671,12 +1690,12 @@
                 const audioElement = document.getElementById(audioId);
                 const playBtn = audioElement.querySelector('.play-btn i');
                 
-                // 停止所有正在播放的音频
-                const allAudioElements = document.querySelectorAll('audio');
-                allAudioElements.forEach(audio => {
-                    audio.pause();
-                    audio.currentTime = 0;
-                });
+                // 停止当前播放的音频
+                if (currentPlayingAudio) {
+                    currentPlayingAudio.pause();
+                    currentPlayingAudio.currentTime = 0;
+                    currentPlayingAudio = null;
+                }
                 
                 // 恢复UI状态
                 audioElement.classList.remove('playing');
