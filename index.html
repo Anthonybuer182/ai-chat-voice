@@ -1581,14 +1581,7 @@
         }
         
         // 更新语音消息元素，添加点击播放功能
-        function updateVoiceMessageForPlayback(role,messageId) {
-            // 查找对应的消息元素
-            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-            if (!messageElement) {
-                console.warn('找不到消息元素:', messageId);
-                return;
-            }
-            
+        function updateVoiceMessageForPlayback(role,messageId) {            
             // 获取该消息的所有音频数据
             const audioDataList = assistantAudioMessages.get(messageId);
             if (!audioDataList || audioDataList.length === 0) {
@@ -1600,7 +1593,7 @@
             const combinedAudioData = audioDataList.join('');
             
             // 更新语音指示器，添加点击播放功能
-            const voiceIndicator = messageElement.querySelector('.assistant-voice-message-indicator');
+            const voiceIndicator =  document.querySelector(`[data-message-id="${messageId}"]`);
             if (voiceIndicator) {
                 const audioId = voiceIndicator.id;
                 voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${audioId}', '${combinedAudioData}')`);
