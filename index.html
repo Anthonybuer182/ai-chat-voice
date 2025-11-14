@@ -1566,7 +1566,10 @@
                     // 开始播放队列
                     if (!isPlayingAudio) {
                         console.log('启动音频队列播放');
-                        playAudioQueue();
+                               // 更新播放按钮状态为播放中
+                        updateAudioPlaybackButton(message_id, true);
+                        playAudioQueue(message_id);
+
                     }
                 } else {
                     console.warn('收到无效或过短的音频数据，跳过处理');
@@ -1601,10 +1604,11 @@
             }
         }
                    // 播放音频队列 - 优化支持句子级别TTS
-            async function playAudioQueue() {
+            async function playAudioQueue(message_id) {
                 if (audioQueue.length === 0) {
                     isPlayingAudio = false;
                     console.log('音频队列播放完成');
+                    updateAudioPlaybackButton(message_id, false);
                     return;
                 }
                 
@@ -1618,13 +1622,12 @@
                     await playAudio(audioItem.base64Audio);
                     
                     console.log('音频块播放完成');
-                    playAudioQueue();
+                    // 播放完成后更新按钮状态
+                    playAudioQueue(message_id);
                 } catch (error) {
                     console.error('音频播放失败:', error);
-                    // 继续播放下一个，不中断整个音频流
-                    setTimeout(() => {
-                        playAudioQueue();
-                    }, 50);
+                    // 播放失败时也要更新按钮状态
+                    playAudioQueue(message_id);
                 }
             }
             
@@ -1711,6 +1714,23 @@
                 // 恢复UI状态
                 audioElement.classList.remove('playing');
                 playBtn.className = 'fas fa-play';
+            }
+            
+            // 更新音频播放按钮状态
+            function updateAudioPlaybackButton(messageId, isPlaying) {
+                const voiceIndicator = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (voiceIndicator) {
+                    const playBtn = voiceIndicator.querySelector('.play-btn i');
+                    if (playBtn) {
+                        if (isPlaying) {
+                            voiceIndicator.classList.add('playing');
+                            playBtn.className = 'fas fa-stop';
+                        } else {
+                            voiceIndicator.classList.remove('playing');
+                            playBtn.className = 'fas fa-play';
+                        }
+                    }
+                }
             }
         // 处理错误消息 - 优化错误处理和状态管理
         function handleErrorMessage(data) {
