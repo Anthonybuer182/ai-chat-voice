@@ -1158,16 +1158,6 @@
                 if (sendBtn) {
                     sendBtn.disabled = false;
                 }
-                
-                // 如果是语音模式，重置录音状态
-                if (currentTab === 1) {
-                    if (isRecording) {
-                        stopRecording();
-                    }
-                    updateRecordButton(false);
-                }
-                
-                console.log('WebSocket错误处理完成，状态已重置');
             };
             
             ws.onclose = () => {
