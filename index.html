@@ -944,21 +944,25 @@
                             const wavBuffer = vad.utils.encodeWAV(audioData);
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
                             const messageId = 'msg_' + Date.now();
-                            addVoiceMessage( 'user',messageId,base64);
-                            // 如果WebSocket连接正常，发送音频数据
-                            if (ws && ws.readyState === WebSocket.OPEN) {
-                                // 设置等待状态
-                                isWaitingForResponse = true;
-                                updateStatus('status', '正在处理语音...', false);
-                                
-                                ws.send(JSON.stringify({
-                                    type: 'audio',
-                                    audio_data: base64,
-                                    message_id:messageId,
-                                    language: currentLanguage,
-                                    tts_engine: getCurrentTtsEngine()
-                                }));
-                            }
+                            
+                            // 准备音频消息数据
+                            const messageData = {
+                                type: 'audio',
+                                audio_data: base64,
+                                message_id: messageId,
+                                language: currentLanguage,
+                                tts_engine: getCurrentTtsEngine()
+                            };
+                            
+                            // 使用封装的发送函数
+                            const success = sendWebSocketMessage(messageData, {
+                                onSuccess: () => {
+                                    // 添加语音消息
+                                    addVoiceMessage('user', messageId, base64);
+                                    // 更新状态
+                                    updateStatus('status', '正在处理语音...', false);
+                                }
+                            });
                         } else {
                             console.warn('VAD没有提供音频数据');
                         }
@@ -1184,6 +1188,39 @@
             }
         }
         
+        // 封装WebSocket发送消息函数
+        function sendWebSocketMessage(messageData, options = {}) {
+            // 检查是否正在等待回复
+            if (isWaitingForResponse) {
+                showError('请等待当前回复完成后再发送新消息');
+                console.warn('当前正在等待回复，阻止新消息发送');
+                return false;
+            }
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // 发送消息到后端
+                ws.send(JSON.stringify(messageData));
+                console.log('WS消息发送:', messageData);
+                
+                // 执行可选的回调函数
+                if (options.onSuccess) {
+                    options.onSuccess();
+                }
+                
+                // 设置等待状态
+                isWaitingForResponse = true;
+                
+                // 更新状态显示
+                updateStatus('status', '等待回复...', true);
+                
+                return true;
+            } else {
+                console.error('WebSocket连接未就绪，无法发送消息');
+                showError('连接未就绪，请检查连接状态');
+                return false;
+            }
+        }
+
         // 发送文本消息 - 优化消息关联逻辑
         function sendTextMessage() {
             const textInput = document.getElementById('textInput');
@@ -1194,46 +1231,32 @@
                 return;
             }
 
-            // 检查是否正在等待回复
-            if (isWaitingForResponse) {
-                showError('请等待当前回复完成后再发送新消息');
-                console.warn('当前正在等待回复，阻止新消息发送');
-                return;
-            }
-
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                // 生成消息ID用于关联回复
-                const messageId = 'msg_' + Date.now();
-                // 发送消息到后端
-                const messageData = {
-                    type: "text",
-                    message: message,
-                    message_id: messageId,  // 添加消息ID用于关联
-                    language: currentLanguage,
-                    tts_engine: getCurrentTtsEngine()
-                };
-                ws.send(JSON.stringify(messageData));
-                console.log('WS消息发送:', messageData);
-                
-                // 添加用户消息，并记录消息ID
-                addMessage('messages', message, 'user', messageId);
-                
-                // 清空输入框并聚焦
-                textInput.value = '';
-                textInput.focus();
-                
-                // 禁用发送按钮并设置等待状态
-                const sendBtn = document.querySelector('.btn-primary');
-                sendBtn.disabled = true;
-                isWaitingForResponse = true;
-                
-                // 更新状态显示
-                updateStatus('status', '等待回复...', true);
-                
-            } else {
-                console.error('WebSocket连接未就绪，无法发送消息');
-                showError('连接未就绪，请检查连接状态');
-            }
+            // 生成消息ID用于关联回复
+            const messageId = 'msg_' + Date.now();
+            // 准备消息数据
+            const messageData = {
+                type: "text",
+                message: message,
+                message_id: messageId,  // 添加消息ID用于关联
+                language: currentLanguage,
+                tts_engine: getCurrentTtsEngine()
+            };
+            
+            // 使用封装的发送函数
+            const success = sendWebSocketMessage(messageData, {
+                onSuccess: () => {
+                    // 添加用户消息，并记录消息ID
+                    addMessage('messages', message, 'user', messageId);
+                    
+                    // 清空输入框并聚焦
+                    textInput.value = '';
+                    textInput.focus();
+                    
+                    // 禁用发送按钮
+                    const sendBtn = document.querySelector('.btn-primary');
+                    sendBtn.disabled = true;
+                }
+            });
         }
         
        
@@ -1294,34 +1317,33 @@
         
         // 发送音频消息
         async function sendAudioMessage(audioBlob) {
-            // 检查是否正在等待回复
-            if (isWaitingForResponse) {
-                showError('请等待当前回复完成后再发送新消息');
-                return;
-            }
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64Audio = reader.result.split(',')[1];
-                    const messageId = 'msg_' + Date.now();
-                    addVoiceMessage('user',messageId,base64Audio);
-                    
-                    // 禁用发送按钮并设置等待状态
-                    const sendBtn = document.querySelector('.btn-primary');
-                    sendBtn.disabled = true;
-                    isWaitingForResponse = true;
-                    
-                    ws.send(JSON.stringify({
-                        type: 'audio',
-                        audio_data: base64Audio,
-                        message_id: messageId, // 估算时长
-                        language: currentLanguage,  // 添加语言参数
-                        tts_engine: getCurrentTtsEngine()
-                    }));
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64Audio = reader.result.split(',')[1];
+                const messageId = 'msg_' + Date.now();
+                
+                // 准备音频消息数据
+                const messageData = {
+                    type: 'audio',
+                    audio_data: base64Audio,
+                    message_id: messageId, // 估算时长
+                    language: currentLanguage,  // 添加语言参数
+                    tts_engine: getCurrentTtsEngine()
                 };
-                reader.readAsDataURL(audioBlob);
-            }
+                
+                // 使用封装的发送函数
+                const success = sendWebSocketMessage(messageData, {
+                    onSuccess: () => {
+                        // 添加语音消息
+                        addVoiceMessage('user', messageId, base64Audio);
+                        
+                        // 禁用发送按钮
+                        const sendBtn = document.querySelector('.btn-primary');
+                        sendBtn.disabled = true;
+                    }
+                });
+            };
+            reader.readAsDataURL(audioBlob);
         }
         
         
