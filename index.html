@@ -1509,7 +1509,7 @@
             if (role !== 'assistant') {
                 return;
             }
-
+            const messageKey = `${message_id}_${role}`;
             if (status === 'start') {
                 // 处理开始音频消息 - 创建语音消息指示器
                 addVoiceMessage(data.role, data.message_id, "");
@@ -1519,7 +1519,6 @@
             } else if (status === 'continue' && type === 'audio') {
                 // 检查音频数据是否有效
                 if (data.content && data.content.length > 100) {
-                    const messageKey = `${message_id}_${role}`;
                     // 将音频添加到播放队列
                     audioQueue.push({
                         base64Audio: data.content,
@@ -1548,16 +1547,16 @@
                 
             } else if (status === 'end') {
                 // 消息流结束，更新语音消息元素以支持点击播放
-                updateVoiceMessageForPlayback(role,message_id);
+                updateVoiceMessageForPlayback(messageKey);
             }
         }
         
         // 更新语音消息元素，添加点击播放功能
-        function updateVoiceMessageForPlayback(role,messageId) {            
+        function updateVoiceMessageForPlayback(messageKey) {            
             // 获取该消息的所有音频数据
-            const audioDataList = assistantAudioMessages.get(messageId);
+            const audioDataList = assistantAudioMessages.get(messageKey);
             if (!audioDataList || audioDataList.length === 0) {
-                console.warn('消息没有音频数据:', messageId);
+                console.warn('消息没有音频数据:', messageKey);
                 return;
             }
             
@@ -1565,7 +1564,7 @@
             const combinedAudioData = audioDataList.join('');
              
             // 更新语音指示器，添加点击播放功能，使用新的 data-message-id 格式
-            const voiceIndicator =  document.querySelector(`[data-message-id="${messageId}_${role}"]`);
+            const voiceIndicator =  document.querySelector(`[data-message-id="${messageKey}"]`);
             if (voiceIndicator) {
                 const audioId = voiceIndicator.id;
                 voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${audioId}', '${combinedAudioData}')`);
