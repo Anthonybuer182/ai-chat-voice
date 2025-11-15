@@ -862,7 +862,6 @@
             
             connectWebSocket();
             setupInputValidation();
-            setupLanguageSelector();
             updateInterfaceLanguage(currentLanguage);
             setupCustomTtsSelector();
         }        
@@ -989,13 +988,6 @@
             console.log('VAD监听已停止');
         }
 
-        // 设置语言选择器
-        function setupLanguageSelector() {
-            // 为语言切换按钮添加ARIA标签和更新文本
-            const languageBtn = document.getElementById('languageToggle');
-            languageBtn.textContent = currentLanguage === 'zh' ? '中' : 'EN';
-            languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
-        }
         
         // 切换语言
         function toggleLanguage() {
@@ -1003,18 +995,15 @@
             
             // 保存到localStorage
             localStorage.setItem('selectedLanguage', currentLanguage);
-            
-            // 更新按钮文字和提示
-            const languageBtn = document.getElementById('languageToggle');
-            languageBtn.textContent = currentLanguage === 'zh' ? '中' : 'EN';
-            languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
-            
             // 更新界面文本
             updateInterfaceLanguage(currentLanguage);
         }
         
         // 更新界面语言
         function updateInterfaceLanguage(lang) {
+            const languageBtn = document.getElementById('languageToggle');
+            languageBtn.textContent = lang === 'zh' ? '中' : 'EN';
+            languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
             const elements = {
                 'app-title': lang === 'zh' ? 'AI语音聊天系统' : 'AI Voice Chat System',
                 'tab1-label': lang === 'zh' ? '<i class=\"fas fa-comment-alt\"></i> 文本与语音聊天' : '<i class=\"fas fa-comment-alt\"></i> Text & Voice Chat',
