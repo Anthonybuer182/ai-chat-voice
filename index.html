@@ -1514,7 +1514,7 @@
                 // 处理开始音频消息 - 创建语音消息指示器
                 addVoiceMessage(data.role, data.message_id, "");
                 // 初始化该消息的音频数据存储
-                assistantAudioMessages.set(message_id, []);
+                assistantAudioMessages.set(messageKey, []);
                 
             } else if (status === 'continue' && type === 'audio') {
                 // 检查音频数据是否有效
