@@ -1003,7 +1003,7 @@
         function updateInterfaceLanguage(lang) {
             const languageBtn = document.getElementById('languageToggle');
             languageBtn.textContent = lang === 'zh' ? '中' : 'EN';
-            languageBtn.setAttribute('aria-label', currentLanguage === 'zh' ? '切换到英文' : 'Switch to Chinese');
+            languageBtn.setAttribute('aria-label', lang === 'zh' ? '切换到英文' : 'Switch to Chinese');
             const elements = {
                 'app-title': lang === 'zh' ? 'AI语音聊天系统' : 'AI Voice Chat System',
                 'tab1-label': lang === 'zh' ? '<i class=\"fas fa-comment-alt\"></i> 文本与语音聊天' : '<i class=\"fas fa-comment-alt\"></i> Text & Voice Chat',
