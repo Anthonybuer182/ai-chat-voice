@@ -1519,26 +1519,27 @@
             } else if (status === 'continue' && type === 'audio') {
                 // 检查音频数据是否有效
                 if (data.content && data.content.length > 100) {
+                    const messageKey = `${message_id}_${role}`;
                     // 将音频添加到播放队列
                     audioQueue.push({
                         base64Audio: data.content,
-                        messageId: message_id
+                        messageKey: messageKey
                     });
                     
                     // 存储音频数据到消息映射中，用于后续点击播放
-                    if (assistantAudioMessages.has(message_id)) {
-                        assistantAudioMessages.get(message_id).push(data.content);
+                    if (assistantAudioMessages.has(messageKey)) {
+                        assistantAudioMessages.get(messageKey).push(data.content);
                     } else {
                         // 如果没有start消息，直接创建存储
-                        assistantAudioMessages.set(message_id, [data.content]);
+                        assistantAudioMessages.set(messageKey, [data.content]);
                     }
                     
                     // 开始播放队列
                     if (!isPlayingAudio) {
                         console.log('启动音频队列播放');
                                // 更新播放按钮状态为播放中
-                        updateAudioPlaybackButton(message_id, true, role);
-                        playAudioQueue(message_id,role);
+                        updateAudioPlaybackButton(messageKey, true);
+                        playAudioQueue(messageKey);
 
                     }
                 } else {
@@ -1574,11 +1575,11 @@
             }
         }
                    // 播放音频队列 - 优化支持句子级别TTS
-            async function playAudioQueue(message_id,role) {
+            async function playAudioQueue(messageKey) {
                 if (audioQueue.length === 0) {
                     isPlayingAudio = false;
                     console.log('音频队列播放完成');
-                    updateAudioPlaybackButton(message_id, false, role);
+                    updateAudioPlaybackButton(messageKey, false);
                     return;
                 }
                 
@@ -1593,11 +1594,11 @@
                     
                     console.log('音频块播放完成');
                     // 播放完成后更新按钮状态
-                    playAudioQueue(message_id,role);
+                    playAudioQueue(messageKey);
                 } catch (error) {
                     console.error('音频播放失败:', error);
                     // 播放失败时也要更新按钮状态
-                    playAudioQueue(message_id,role);
+                    playAudioQueue(messageKey);
                 }
             }
             
@@ -1796,9 +1797,9 @@
             }
             
             // 更新音频播放按钮状态
-            function updateAudioPlaybackButton(messageId, isPlaying, role) {
+            function updateAudioPlaybackButton(messageKey, isPlaying) {
                 // 根据角色动态构建 data-message-id
-                const voiceIndicator = document.querySelector(`[data-message-id="${messageId}_${role}"]`);
+                const voiceIndicator = document.querySelector(`[data-message-id="${messageKey}"]`);
                 if (voiceIndicator) {
                     const playBtn = voiceIndicator.querySelector('.play-btn i');
                     if (playBtn) {
