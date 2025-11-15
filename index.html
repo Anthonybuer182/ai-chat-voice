@@ -1586,7 +1586,7 @@
                 isPlayingAudio = true;
                 const audioItem = audioQueue.shift();
                 
-                console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块，消息ID: ${audioItem.messageId}`);
+                console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块，消息ID: ${audioItem.messageKey}`);
                 
                 try {
                     // 播放当前音频
