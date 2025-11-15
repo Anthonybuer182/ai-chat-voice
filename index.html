@@ -862,7 +862,7 @@
             
             connectWebSocket();
             setupInputValidation();
-            updateInterfaceLanguage(currentLanguage);
+            setupCustomLanguageSelector(currentLanguage);
             setupCustomTtsSelector();
         }        
         // 页面加载时初始化VAD
@@ -996,11 +996,11 @@
             // 保存到localStorage
             localStorage.setItem('selectedLanguage', currentLanguage);
             // 更新界面文本
-            updateInterfaceLanguage(currentLanguage);
+            setupCustomLanguageSelector(currentLanguage);
         }
         
         // 更新界面语言
-        function updateInterfaceLanguage(lang) {
+        function setupCustomLanguageSelector(lang) {
             const languageBtn = document.getElementById('languageToggle');
             languageBtn.textContent = lang === 'zh' ? '中' : 'EN';
             languageBtn.setAttribute('aria-label', lang === 'zh' ? '切换到英文' : 'Switch to Chinese');
