@@ -1897,8 +1897,8 @@
             // 从localStorage加载保存的TTS选择
             const savedTtsEngine = localStorage.getItem('selectedTtsEngine');
             if (savedTtsEngine) {
-                // 更新自定义选择器显示
-                const savedOption = dropdown.querySelector(`[data-value="${savedTtsEngine}"]`);
+                cachedTtsEngine = savedTtsEngine;
+                const savedOption = dropdown.querySelector(`[data-value="${cachedTtsEngine}"]`);
                 if (savedOption) {
                     select.textContent = savedOption.textContent;
                     options.forEach(opt => opt.classList.remove('selected'));
@@ -1945,7 +1945,7 @@
                     
                     // 保存到localStorage并更新缓存
                     localStorage.setItem('selectedTtsEngine', value);
-                    cachedTtsEngine = newEngine;
+                    cachedTtsEngine = value;
                     
                     // 关闭下拉菜单
                     selector.classList.remove('active');
