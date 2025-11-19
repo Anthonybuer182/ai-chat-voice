@@ -929,26 +929,8 @@
                             // 直接使用VAD工具函数处理音频数据
                             const wavBuffer = vad.utils.encodeWAV(audioData);
                             const base64 = vad.utils.arrayBufferToBase64(wavBuffer);
-                            const messageId = 'msg_' + Date.now();
-                            
-                            // 准备音频消息数据
-                            const messageData = {
-                                type: 'audio',
-                                audio_data: base64,
-                                message_id: messageId,
-                                language: currentLanguage,
-                                tts_engine: getCurrentTtsEngine()
-                            };
-                            
-                            // 使用封装的发送函数
-                            const success = sendWebSocketMessage(messageData, {
-                                onSuccess: () => {
-                                    // 添加语音消息
-                                    addVoiceMessage('user', messageId, base64);
-                                    // 更新状态
-                                    updateStatus('status', '正在处理语音...', false);
-                                }
-                            });
+                            // 使用统一的音频消息发送函数
+                            const success = sendAudioMessageData(base64);
                         } else {
                             console.warn('VAD没有提供音频数据');
                         }
@@ -1277,34 +1259,42 @@
             }
         }
         
-        // 发送音频消息
-        async function sendAudioMessage(audioBlob) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const base64Audio = reader.result.split(',')[1];
-                const messageId = 'msg_' + Date.now();
-                
-                // 准备音频消息数据
-                const messageData = {
-                    type: 'audio',
-                    audio_data: base64Audio,
-                    message_id: messageId, // 估算时长
-                    language: currentLanguage,  // 添加语言参数
-                    tts_engine: getCurrentTtsEngine()
-                };
-                
-                // 使用封装的发送函数
-                const success = sendWebSocketMessage(messageData, {
-                    onSuccess: () => {
-                        // 添加语音消息
-                        addVoiceMessage('user', messageId, base64Audio);
-                    }
-                });
-
-
-                
+        // 统一的音频消息发送函数
+        function sendAudioMessageData(base64Audio) {
+            const messageId = 'msg_' + Date.now();
+            // 准备音频消息数据
+            const messageData = {
+                type: 'audio',
+                audio_data: base64Audio,
+                message_id: messageId,
+                language: currentLanguage,
+                tts_engine: getCurrentTtsEngine()
             };
-            reader.readAsDataURL(audioBlob);
+            
+            // 使用封装的发送函数
+            const success = sendWebSocketMessage(messageData, {
+                onSuccess: () => {
+                    // 添加语音消息
+                    addVoiceMessage('user', finalMessageId, base64Audio);
+                    // 更新状态
+                    updateStatus('status', '正在处理语音...', false);
+                }
+            });
+            
+            return success;
+        }
+        
+        // 发送音频消息（处理Blob格式）
+        async function sendAudioMessage(audioBlob) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64Audio = reader.result.split(',')[1];
+                    const success = sendAudioMessageData(base64Audio);
+                    resolve(success);
+                };
+                reader.readAsDataURL(audioBlob);
+            });
         }
         
         
