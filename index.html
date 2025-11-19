@@ -957,10 +957,7 @@
                     baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/"
                 });
 
-                // 开始监听
                 vadInstance.start();
-                isListening = true;
-                
                 console.log('VAD监听已启动');
                 
             } catch (error) {
@@ -975,8 +972,7 @@
                 vadInstance.pause();
                 vadInstance = null;
             }
-            
-            isListening = false;
+
             isRecording = false;
             
             console.log('VAD监听已停止');
