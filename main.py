@@ -981,6 +981,7 @@ class ResponseHandler:
         self.manager = manager
         self.audio_processor = audio_processor
         self.ai_service = ai_service
+        self.active_tts_tasks = set()  # 跟踪活跃的TTS任务
         logger.info("响应处理器初始化完成")
     
     @log_performance
@@ -1033,7 +1034,10 @@ class ResponseHandler:
         chat_history.add_message(session_id, "assistant", full_response)
         logger.info(f"LLM出参，full_response: {full_response}")
         
-        # 6. 发送end状态消息
+        # 6. 等待所有TTS任务完成
+        await self._wait_for_all_tts_tasks()
+        
+        # 7. 发送end状态消息
         await self.manager.send_json(websocket, {
             "status": "end",
             "role": "assistant",
@@ -1064,6 +1068,9 @@ class ResponseHandler:
             self.ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
         )
         
+        # 将任务添加到活跃任务集合中
+        self.active_tts_tasks.add(audio_task)
+        
         # 创建任务完成后的回调函数
         async def send_audio_when_ready(task):
             try:
@@ -1081,9 +1088,29 @@ class ResponseHandler:
                 logger.warning(f"句子TTS超时: {sentence}")
             except Exception as e:
                 logger.error(f"句子TTS失败: {sentence} 错误: {str(e)}")
+            finally:
+                # 无论成功还是失败，都从活跃任务中移除
+                self.active_tts_tasks.discard(task)
         
         # 启动异步任务，不等待完成
         asyncio.create_task(send_audio_when_ready(audio_task))
+    
+    async def _wait_for_all_tts_tasks(self):
+        """等待所有活跃的TTS任务完成"""
+        if self.active_tts_tasks:
+            logger.info(f"等待 {len(self.active_tts_tasks)} 个TTS任务完成...")
+            try:
+                # 等待所有任务完成，设置超时时间
+                await asyncio.wait_for(
+                    asyncio.gather(*self.active_tts_tasks, return_exceptions=True),
+                    timeout=60.0
+                )
+                logger.info("所有TTS任务已完成")
+            except asyncio.TimeoutError:
+                logger.warning("等待TTS任务超时，强制结束")
+            finally:
+                # 清空活跃任务集合
+                self.active_tts_tasks.clear()
 
 # 创建AIService实例
 ai_service = AIService()
