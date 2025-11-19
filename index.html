@@ -837,9 +837,7 @@
         let currentLanguage = 'zh';  // 当前语言：'zh' 或 'en'
         let currentTtsEngine = null;  // 获取当前TTS引擎值（带缓存优化）
         let isWaitingForResponse = false; // 是否正在等待AI回复
-        
       
-        
         // 初始化
         function init() {
             // 从localStorage加载保存的语言选择
@@ -1101,16 +1099,11 @@
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
     
             ws.onopen = () => {
-                const statusId = 'status'; // 现在使用共享的status
-                const statusText = '已连接';
-
-                updateStatus(statusId, statusText, true);
+                updateStatus('status', '已连接', true);
                 reconnectAttempts = 0;
                 console.log('WS连接成功');
             };
-            
-
-            
+        
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);// 现在使用共享的messages
                 console.log('WS消息接收:', data);
@@ -1120,8 +1113,6 @@
                     if (sendBtn) {
                         sendBtn.disabled = false;
                     }
-                    // 更新状态显示
-                    updateStatus('status', '已连接', true);
                 }
                 // 根据后端ResponseHandler的消息格式处理
                 if (data.type === 'error') {
@@ -1187,6 +1178,9 @@
                 
                 // 设置等待状态
                 isWaitingForResponse = true;
+                // 禁用发送按钮
+                const sendBtn = document.querySelector('.btn-primary');
+                sendBtn.disabled = true;
                 
                 // 更新状态显示
                 updateStatus('status', '等待回复...', true);
@@ -1229,10 +1223,6 @@
                     // 清空输入框并聚焦
                     textInput.value = '';
                     textInput.focus();
-                    
-                    // 禁用发送按钮
-                    const sendBtn = document.querySelector('.btn-primary');
-                    sendBtn.disabled = true;
                 }
             });
         }
@@ -1314,10 +1304,6 @@
                     onSuccess: () => {
                         // 添加语音消息
                         addVoiceMessage('user', messageId, base64Audio);
-                        
-                        // 禁用发送按钮
-                        const sendBtn = document.querySelector('.btn-primary');
-                        sendBtn.disabled = true;
                     }
                 });
             };
