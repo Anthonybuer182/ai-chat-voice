@@ -25,7 +25,6 @@ pip install fastapi uvicorn websockets openai gtts faster-whisper numpy scipy py
 """
 
 import os
-import json
 import base64
 import asyncio
 import tempfile
@@ -35,17 +34,13 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import numpy as np
-from scipy.io.wavfile import write as write_wav
 from gtts import gTTS
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from faster_whisper import WhisperModel
 import logging
 from dotenv import load_dotenv
-import requests
-import aiohttp
 
 # 配置日志系统
 logging.basicConfig(
