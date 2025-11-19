@@ -1265,7 +1265,7 @@
                     stream.getTracks().forEach(track => track.stop());
                 };
                 
-                mediaRecorder.start(1000); // 每1秒收集一次数据
+                mediaRecorder.start();
                 isRecording = true;
                 updateRecordButton(true);
             } catch (error) {
