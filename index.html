@@ -1253,9 +1253,9 @@
                     }
                 };
                 
-                mediaRecorder.onstop = async () => {
+                mediaRecorder.onstop = () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    await sendAudioMessage(audioBlob);
+                    sendAudioMessage(audioBlob);
                     stream.getTracks().forEach(track => track.stop());
                 };
                 
