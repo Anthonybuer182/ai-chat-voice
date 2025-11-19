@@ -831,16 +831,12 @@
         let audioChunks = [];
         let isRecording = false;
         let currentTab = 0;
-        let audioContext = null;
-        let mediaStream = null;
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
         const RECONNECT_DELAY = 3000;
         let currentLanguage = 'zh';  // 当前语言：'zh' 或 'en'
-        
-        // 消息状态管理
+        let currentTtsEngine = null;  // 获取当前TTS引擎值（带缓存优化）
         let isWaitingForResponse = false; // 是否正在等待AI回复
-        let messageQueue = []; // 消息队列（用于处理并发消息）
         
       
         
@@ -1866,14 +1862,13 @@
             }, 3000);
         }
         
-        // 获取当前TTS引擎值（带缓存优化）
-        let cachedTtsEngine = null;
+
         function getCurrentTtsEngine() {
             // 如果缓存为空，从localStorage读取
-            if (cachedTtsEngine === null) {
-                cachedTtsEngine = localStorage.getItem('selectedTtsEngine') || 'pyttsx3';
+            if (currentTtsEngine === null) {
+                currentTtsEngine = localStorage.getItem('selectedTtsEngine') || 'pyttsx3';
             }
-            return cachedTtsEngine;
+            return currentTtsEngine;
         }
         
         // 自定义TTS选择器功能
@@ -1886,8 +1881,8 @@
             // 从localStorage加载保存的TTS选择
             const savedTtsEngine = localStorage.getItem('selectedTtsEngine');
             if (savedTtsEngine) {
-                cachedTtsEngine = savedTtsEngine;
-                const savedOption = dropdown.querySelector(`[data-value="${cachedTtsEngine}"]`);
+                currentTtsEngine = savedTtsEngine;
+                const savedOption = dropdown.querySelector(`[data-value="${currentTtsEngine}"]`);
                 if (savedOption) {
                     select.textContent = savedOption.textContent;
                     options.forEach(opt => opt.classList.remove('selected'));
@@ -1934,7 +1929,7 @@
                     
                     // 保存到localStorage并更新缓存
                     localStorage.setItem('selectedTtsEngine', value);
-                    cachedTtsEngine = value;
+                    currentTtsEngine = value;
                     
                     // 关闭下拉菜单
                     selector.classList.remove('active');
