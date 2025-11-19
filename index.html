@@ -1157,7 +1157,6 @@
             // 检查是否正在等待回复
             if (isWaitingForResponse) {
                 showError('请等待当前回复完成后再发送新消息');
-                console.warn('当前正在等待回复，阻止新消息发送');
                 return false;
             }
 
@@ -1204,7 +1203,7 @@
             const messageData = {
                 type: "text",
                 message: message,
-                message_id: messageId,  // 添加消息ID用于关联
+                message_id: messageId,
                 language: currentLanguage,
                 tts_engine: getCurrentTtsEngine()
             };
@@ -1301,6 +1300,9 @@
                         addVoiceMessage('user', messageId, base64Audio);
                     }
                 });
+
+
+                
             };
             reader.readAsDataURL(audioBlob);
         }
