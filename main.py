@@ -803,7 +803,7 @@ class AIService:
                 engine.setProperty('volume', 0.9)  # 较高音量
                 
                 # 保存到临时文件 - 使用MP3格式
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
                     tmp_path = tmp.name
                 
                 # 保存语音到文件
