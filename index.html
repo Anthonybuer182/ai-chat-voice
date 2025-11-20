@@ -1632,7 +1632,7 @@
                             currentPlayingAudio = null;
                         }
                         reject(new Error('音频播放超时'));
-                    }, 10000); // 10秒超时
+                    }, 150000); // 15秒超时
                     
                     // 尝试播放音频
                     audio.play().then(() => {
