@@ -1295,9 +1295,6 @@
             });
         }
         
-        
-
-        
         // 添加消息（带时间戳）- 优化消息关联逻辑
         function addMessage(containerId, content, role, messageId = null) {
             const messagesDiv = document.getElementById(containerId);
@@ -1430,7 +1427,7 @@
             
             // 语音消息插入到消息列表的末尾（最后一条消息的上方）
             const lastChild = messagesDiv.lastChild;
-            if (lastChild&&role==='assistant'&&lastChild.classList.contains(role)) {
+            if (lastChild&&role==='assistant') {
                 messagesDiv.insertBefore(messageDiv, lastChild);
             } else {
                 messagesDiv.appendChild(messageDiv);
