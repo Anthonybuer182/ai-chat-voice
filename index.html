@@ -1466,7 +1466,6 @@
         }
         // 统一语音播放队列管理
         let audioQueue = [];
-        let isPlayingAudio = false;
         // 存储助手语音消息的音频数据，用于后续点击播放
         let assistantAudioMessages = new Map();
         
@@ -1501,13 +1500,11 @@
                     }
                     
                     // 开始播放队列
-                    if (!isPlayingAudio) {
-                        console.log('启动音频队列播放');
-                               // 更新播放按钮状态为播放中
-                        updateAudioPlaybackButton(messageKey, true);
-                        playAudioQueue(messageKey);
+                    console.log('启动音频队列播放');
+                    // 更新播放按钮状态为播放中
+                    updateAudioPlaybackButton(messageKey, true);
+                    playAudioQueue(messageKey);
 
-                    }
                 } else {
                     console.warn('收到无效或过短的音频数据，跳过处理');
                 }
@@ -1543,13 +1540,11 @@
                    // 播放音频队列 - 优化支持句子级别TTS
             async function playAudioQueue(messageKey) {
                 if (audioQueue.length === 0) {
-                    isPlayingAudio = false;
                     console.log('音频队列播放完成');
                     updateAudioPlaybackButton(messageKey, false);
                     return;
                 }
                 
-                isPlayingAudio = true;
                 const audioItem = audioQueue.shift();
                 
                 console.log(`开始播放音频队列，剩余: ${audioQueue.length} 个音频块，消息ID: ${audioItem.messageKey}`);
