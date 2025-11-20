@@ -1403,22 +1403,18 @@
             }
         }
          // 创建语音消息元素（统一函数）- 优化支持助手语音消息
-        function createVoiceMessageElement(role, base64Audio = null, messageId = null) {
-            const audioId = 'audio-' + Date.now();
+        function createVoiceMessageElement(role, base64Audio = null, messageId) {
+            const messageKey = `${messageId}_${role}`;
             const isUser = role === 'user';
             const cssClass = isUser ? 'user-voice-message-indicator' : 'assistant-voice-message-indicator';
             
             // 用户语音消息：立即添加点击播放功能
             // 助手语音消息：稍后通过updateVoiceMessageForPlayback添加点击播放功能
             const onClickAttribute = isUser && base64Audio 
-                ? `onclick="toggleAudioPlayback('${audioId}', '${base64Audio}')"` 
+                ? `onclick="toggleAudioPlayback('${messageKey}', '${base64Audio}')"` 
                 : '';
-            
-            // 为语音消息添加数据属性，便于后续更新，包含 messageId 和 role
-            const dataAttributes = messageId ? `data-message-id="${messageId}_${role}"` : '';
-            
             return `
-                <div class="${cssClass}" id="${audioId}" ${onClickAttribute} ${dataAttributes}>
+                <div class="${cssClass}" id="${messageKey}" ${onClickAttribute}>
                     <div class="play-btn">
                         <i class="fas fa-play"></i>
                     </div>
@@ -1526,12 +1522,9 @@
             
             // 将所有音频数据合并为一个完整的音频（用于点击播放）
             const combinedAudioData = audioDataList.join('');
-             
-            // 更新语音指示器，添加点击播放功能，使用新的 data-message-id 格式
-            const voiceIndicator =  document.querySelector(`[data-message-id="${messageKey}"]`);
+            const voiceIndicator = document.getElementById(messageKey);
             if (voiceIndicator) {
-                const audioId = voiceIndicator.id;
-                voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${audioId}', '${combinedAudioData}')`);
+                voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${messageKey}', '${combinedAudioData}')`);
                 voiceIndicator.style.cursor = 'pointer'; // 添加手型光标
                 
                 console.log('已为助手语音消息添加点击播放功能:', messageKey);
@@ -1671,10 +1664,10 @@
             }
             
             // 切换音频播放状态 - 修复版本
-            function toggleAudioPlayback(audioId, base64Audio) {
-                const audioElement = document.getElementById(audioId);
+            function toggleAudioPlayback(messageKey, base64Audio) {
+                const audioElement = document.getElementById(messageKey);
                 if (!audioElement) {
-                    console.error('找不到音频元素:', audioId);
+                    console.error('找不到音频元素:', messageKey);
                     return;
                 }
                 
@@ -1682,10 +1675,10 @@
                 const isPlaying = audioElement.classList.contains('playing');
                 
                 if (isPlaying) {
-                    console.log('点击停止播放:', audioId);
-                    stopAudioPlayback(audioId);  // 停止播放
+                    console.log('点击停止播放:', messageKey);
+                    stopAudioPlayback(messageKey);  // 停止播放
                 } else {
-                    console.log('点击开始播放:', audioId);
+                    console.log('点击开始播放:', messageKey);
                     
                     // 检查音频数据是否有效
                     if (!base64Audio || base64Audio.length < 100) {
@@ -1694,21 +1687,21 @@
                         return;
                     }
                     
-                    startAudioPlayback(audioId, base64Audio);  // 开始播放
+                    startAudioPlayback(messageKey, base64Audio);  // 开始播放
                 }
             }
             
             // 开始音频播放 - 修复版本
-            async function startAudioPlayback(audioId, base64Audio) {
-                const audioElement = document.getElementById(audioId);
+            async function startAudioPlayback(messageKey, base64Audio) {
+                const audioElement = document.getElementById(messageKey);
                 if (!audioElement) {
-                    console.error('开始播放时找不到音频元素:', audioId);
+                    console.error('开始播放时找不到音频元素:', messageKey);
                     return;
                 }
                 
                 const playBtn = audioElement.querySelector('.play-btn i');
                 if (!playBtn) {
-                    console.error('找不到播放按钮:', audioId);
+                    console.error('找不到播放按钮:', messageKey);
                     return;
                 }
                 
@@ -1741,8 +1734,8 @@
             }
             
             // 停止音频播放
-            function stopAudioPlayback(audioId) {
-                const audioElement = document.getElementById(audioId);
+            function stopAudioPlayback(messageKey) {
+                const audioElement = document.getElementById(messageKey);
                 const playBtn = audioElement.querySelector('.play-btn i');
                 
                 // 停止当前播放的音频
@@ -1759,8 +1752,7 @@
             
             // 更新音频播放按钮状态
             function updateAudioPlaybackButton(messageKey, isPlaying) {
-                // 根据角色动态构建 data-message-id
-                const voiceIndicator = document.querySelector(`[data-message-id="${messageKey}"]`);
+                const voiceIndicator = document.getElementById(messageKey);
                 if (voiceIndicator) {
                     const playBtn = voiceIndicator.querySelector('.play-btn i');
                     if (playBtn) {
