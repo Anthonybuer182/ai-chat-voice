@@ -743,39 +743,49 @@ class AIService:
         """使用pyttsx3进行本地语音合成（无需网络）"""
         for attempt in range(max_retries):
             try:
-                import pyttsx3
-                # 初始化引擎
-                engine = pyttsx3.init()
-             
-                # 设置语音属性
-                if language == "zh":
-                    # 设置中文语音 - 以婷婷为例
-                    engine.setProperty('voice', 'com.apple.voice.compact.zh-CN.Tingting')
-                elif language == "en":
-                    # 设置英文语音 - 以Samantha为例
-                    engine.setProperty('voice', 'com.apple.voice.compact.en-US.Samantha')
+                # 使用线程池执行器来运行同步的pyttsx3代码，避免阻塞事件循环
+                loop = asyncio.get_event_loop()
                 
-                # 设置语速和音量
-                engine.setProperty('rate', 180)  # 适中语速
-                engine.setProperty('volume', 0.9)  # 较高音量
+                # 定义一个同步函数来执行pyttsx3操作
+                def sync_pyttsx3_tts():
+                    import pyttsx3
+                    # 初始化引擎
+                    engine = pyttsx3.init()
+                 
+                    # 设置语音属性
+                    if language == "zh":
+                        # 设置中文语音 - 以婷婷为例
+                        engine.setProperty('voice', 'com.apple.voice.compact.zh-CN.Tingting')
+                    elif language == "en":
+                        # 设置英文语音 - 以Samantha为例
+                        engine.setProperty('voice', 'com.apple.voice.compact.en-US.Samantha')
+                    
+                    # 设置语速和音量
+                    engine.setProperty('rate', 180)  # 适中语速
+                    engine.setProperty('volume', 0.9)  # 较高音量
+                    
+                    # 保存到临时文件 - 使用MP3格式
+                    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+                        tmp_path = tmp.name
+                    
+                    # 保存语音到文件
+                    engine.save_to_file(text, tmp_path)
+                    engine.runAndWait()
+                    
+                    # 读取文件内容
+                    with open(tmp_path, 'rb') as f:
+                        audio_data = f.read()
+                    
+                    # 清理临时文件
+                    try:
+                        os.unlink(tmp_path)
+                    except:
+                        pass
+                    
+                    return audio_data
                 
-                # 保存到临时文件 - 使用MP3格式
-                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                    tmp_path = tmp.name
-                
-                # 保存语音到文件
-                engine.save_to_file(text, tmp_path)
-                engine.runAndWait()
-                
-                # 读取文件内容
-                with open(tmp_path, 'rb') as f:
-                    audio_data = f.read()
-                
-                # 清理临时文件
-                try:
-                    os.unlink(tmp_path)
-                except:
-                    pass
+                # 在线程池中执行同步函数
+                audio_data = await loop.run_in_executor(None, sync_pyttsx3_tts)
                 
                 if len(audio_data) > 100:
                     logger.info(f"pyttsx3 TTS成功 (尝试 {attempt + 1})")
