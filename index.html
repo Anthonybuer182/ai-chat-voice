@@ -805,7 +805,7 @@
         <div class="input-area active">
             <input type="text" class="input-field" id="textInput" 
                    placeholder="输入消息..." 
-                   onkeypress="if(event.key === 'Enter') sendTextMessage()">
+                   onkeypress="if(event.key === 'Enter' && !isWaitingForResponse) sendTextMessage()">
             <button class="btn btn-primary" onclick="sendTextMessage()" data-text="发送">
                 <i class="fas fa-paper-plane"></i> 发送
             </button>
