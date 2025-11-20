@@ -1517,10 +1517,10 @@
             
             // 将所有音频数据合并为一个完整的音频（用于点击播放）
             const combinedAudioData = audioDataList.join('');
-            const voiceIndicator = document.getElementById(messageKey);
-            if (voiceIndicator) {
-                voiceIndicator.setAttribute('onclick', `toggleAudioPlayback('${messageKey}', '${combinedAudioData}')`);
-                voiceIndicator.style.cursor = 'pointer'; // 添加手型光标
+            const audioElement = document.getElementById(messageKey);
+            if (audioElement) {
+                audioElement.setAttribute('onclick', `toggleAudioPlayback('${messageKey}', '${combinedAudioData}')`);
+                audioElement.style.cursor = 'pointer'; // 添加手型光标
                 
                 console.log('已为助手语音消息添加点击播放功能:', messageKey);
             }
@@ -1688,74 +1688,42 @@
             
             // 开始音频播放 - 修复版本
             async function startAudioPlayback(messageKey, base64Audio) {
-                const audioElement = document.getElementById(messageKey);
-                if (!audioElement) {
-                    console.error('开始播放时找不到音频元素:', messageKey);
-                    return;
-                }
-                
-                const playBtn = audioElement.querySelector('.play-btn i');
-                if (!playBtn) {
-                    console.error('找不到播放按钮:', messageKey);
-                    return;
-                }
-                
-                // 设置播放状态
-                audioElement.classList.add('playing');
-                playBtn.className = 'fas fa-stop';
-                
+               updateAudioPlaybackButton(messageKey, true); 
                 try {
                     console.log('开始播放音频，数据长度:', base64Audio.length);
-                    
-                    // 播放音频
                     await playAudio(base64Audio);
-                    
                     console.log('音频播放完成');
-                    
-                    // 播放完成后恢复状态
-                    audioElement.classList.remove('playing');
-                    playBtn.className = 'fas fa-play';
+                    updateAudioPlaybackButton(messageKey, false);
                     
                 } catch (error) {
                     console.error('音频播放失败:', error);
-                    
-                    // 播放失败时恢复状态
-                    audioElement.classList.remove('playing');
-                    playBtn.className = 'fas fa-play';
-                    
-                    // 显示错误信息
+                    updateAudioPlaybackButton(messageKey, false);
                     showError('音频播放失败: ' + error.message);
                 }
             }
             
             // 停止音频播放
-            function stopAudioPlayback(messageKey) {
-                const audioElement = document.getElementById(messageKey);
-                const playBtn = audioElement.querySelector('.play-btn i');
-                
+            function stopAudioPlayback(messageKey) {    
                 // 停止当前播放的音频
                 if (currentPlayingAudio) {
                     currentPlayingAudio.pause();
                     currentPlayingAudio.currentTime = 0;
                     currentPlayingAudio = null;
                 }
-                
-                // 恢复UI状态
-                audioElement.classList.remove('playing');
-                playBtn.className = 'fas fa-play';
+                updateAudioPlaybackButton(messageKey, false);
             }
             
             // 更新音频播放按钮状态
             function updateAudioPlaybackButton(messageKey, isPlaying) {
-                const voiceIndicator = document.getElementById(messageKey);
-                if (voiceIndicator) {
-                    const playBtn = voiceIndicator.querySelector('.play-btn i');
+                const audioElement = document.getElementById(messageKey);
+                if (audioElement) {
+                    const playBtn = audioElement.querySelector('.play-btn i');
                     if (playBtn) {
                         if (isPlaying) {
-                            voiceIndicator.classList.add('playing');
+                            audioElement.classList.add('playing');
                             playBtn.className = 'fas fa-stop';
                         } else {
-                            voiceIndicator.classList.remove('playing');
+                            audioElement.classList.remove('playing');
                             playBtn.className = 'fas fa-play';
                         }
                     }
