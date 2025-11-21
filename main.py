@@ -25,7 +25,6 @@ pip install fastapi uvicorn websockets openai gtts faster-whisper numpy scipy py
 """
 
 import os
-import json
 import base64
 import asyncio
 import tempfile
@@ -35,17 +34,13 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import numpy as np
-from scipy.io.wavfile import write as write_wav
 from gtts import gTTS
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from faster_whisper import WhisperModel
 import logging
 from dotenv import load_dotenv
-import requests
-import aiohttp
 
 # 配置日志系统
 logging.basicConfig(
@@ -440,44 +435,6 @@ class AudioProcessor:
         except Exception as e:
             logger.error(f"WebM转WAV失败: {str(e)}")
             raise
-    
-    @staticmethod
-    @log_performance
-    def float32_to_wav(audio_data: np.ndarray, sample_rate: int = 16000) -> bytes:
-        """
-        将float32音频数组转换为WAV格式的二进制数据
-        
-        Args:
-            audio_data: float32格式的音频数组
-            sample_rate: 音频采样率，默认16000Hz
-            
-        Returns:
-            bytes: WAV格式的音频二进制数据
-        """
-        try:
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
-                # 转换为16位整数
-                audio_int16 = (audio_data * 32767).astype(np.int16)
-                write_wav(tmp.name, sample_rate, audio_int16)
-                
-                # 读取WAV文件内容
-                with open(tmp.name, 'rb') as f:
-                    wav_data = f.read()
-                
-                # 删除临时文件
-                os.unlink(tmp.name)
-                
-            logger.debug(f"Float32转WAV成功，数据大小: {len(wav_data)} 字节")
-            return wav_data
-        except Exception as e:
-            logger.error(f"Float32转WAV失败: {str(e)}")
-            # 清理临时文件
-            try:
-                if 'tmp' in locals():
-                    os.unlink(tmp.name)
-            except:
-                pass
-            raise
 
 # 创建全局音频处理器实例
 audio_processor = AudioProcessor()
@@ -803,7 +760,7 @@ class AIService:
                 engine.setProperty('volume', 0.9)  # 较高音量
                 
                 # 保存到临时文件 - 使用MP3格式
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
                     tmp_path = tmp.name
                 
                 # 保存语音到文件
