@@ -574,7 +574,7 @@ class AIService:
             yield ("抱歉，我遇到了一些问题。请稍后再试。", None)
     
     @log_performance
-    async def text_to_speech_with_engine(self, text: str, engine: str, language: str = "zh", max_retries: int = 3) -> bytes:
+    async def text_to_speech_with_engine(self, text: str, sentence_priority: int, engine: str, language: str = "zh", max_retries: int = 3) -> tuple:
         """
         使用指定TTS引擎将文本转换为语音
         
@@ -607,7 +607,7 @@ class AIService:
         else:
             logger.warning(f"TTS转换返回空结果，引擎: {engine}")
         
-        return result
+        return result, sentence_priority
 
     @log_performance
     async def _gtts_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
@@ -976,6 +976,7 @@ class ResponseHandler:
         
         # 4. 流式获取AI响应
         full_response = ""
+        sentence_priority = 0
         async for chunk, sentence in self.ai_service.get_chat_response_stream_with_sentence(messages, language):
             # 发送文本内容
             if chunk:
@@ -984,7 +985,8 @@ class ResponseHandler:
             
             # 处理句子级别的TTS
             if sentence:
-                await self._handle_sentence_tts(websocket, sentence, tts_engine, language, message_id)
+                sentence_priority += 1
+                await self._handle_sentence_tts(websocket, sentence, sentence_priority, tts_engine, language, message_id)
         
         # 5. 添加AI响应到历史
         chat_history.add_message(session_id, "assistant", full_response)
@@ -1012,28 +1014,20 @@ class ResponseHandler:
         })
         logger.info(f"LLM出参，chunk: {chunk}")
     
-    async def _handle_sentence_tts(self, websocket, sentence, tts_engine, language, message_id):
+    async def _handle_sentence_tts(self, websocket, sentence, sentence_priority, tts_engine, language, message_id):
         """处理句子级别的TTS音频生成和发送"""
         logger.info(f"LLM出参，sentence: {sentence}")
         
         # 创建TTS任务
         audio_task = asyncio.create_task(
-            self.ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
+            self.ai_service.text_to_speech_with_engine(sentence, sentence_priority, tts_engine, language)
         )
         
         # 创建任务完成后的回调函数
         async def send_audio_when_ready(task):
             try:
-                audio_data = await asyncio.wait_for(task, timeout=30.0)
-                if audio_data:
-                    await self.manager.send_json(websocket, {
-                        "type": "audio",
-                        "content": self.audio_processor.audio_to_base64(audio_data),
-                        "status": "continue",
-                        "role": "assistant",
-                        "message_id": message_id,
-                        "timestamp": datetime.now().timestamp()
-                    })
+                audio_data, priority = await asyncio.wait_for(task, timeout=30.0)
+                
             except asyncio.TimeoutError:
                 logger.warning(f"句子TTS超时: {sentence}")
             except Exception as e:
