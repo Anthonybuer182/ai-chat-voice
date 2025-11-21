@@ -978,7 +978,6 @@ class ResponseHandler:
         logger.info(f"LLM入参：{messages}")
         
         # 4. 初始化音频任务收集器
-        self.sentences[message_id] = []
         self.audio_datas[message_id] = []
         
         # 5. 流式获取AI响应
