@@ -25,6 +25,7 @@ pip install fastapi uvicorn websockets openai gtts faster-whisper numpy scipy py
 """
 
 import os
+import json
 import base64
 import asyncio
 import tempfile
@@ -34,13 +35,17 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+import numpy as np
+from scipy.io.wavfile import write as write_wav
 from gtts import gTTS
-from openai import AsyncOpenAI
+from openai import OpenAI, AsyncOpenAI
 from faster_whisper import WhisperModel
 import logging
 from dotenv import load_dotenv
+import requests
+import aiohttp
 
 # 配置日志系统
 logging.basicConfig(
@@ -435,6 +440,44 @@ class AudioProcessor:
         except Exception as e:
             logger.error(f"WebM转WAV失败: {str(e)}")
             raise
+    
+    @staticmethod
+    @log_performance
+    def float32_to_wav(audio_data: np.ndarray, sample_rate: int = 16000) -> bytes:
+        """
+        将float32音频数组转换为WAV格式的二进制数据
+        
+        Args:
+            audio_data: float32格式的音频数组
+            sample_rate: 音频采样率，默认16000Hz
+            
+        Returns:
+            bytes: WAV格式的音频二进制数据
+        """
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                # 转换为16位整数
+                audio_int16 = (audio_data * 32767).astype(np.int16)
+                write_wav(tmp.name, sample_rate, audio_int16)
+                
+                # 读取WAV文件内容
+                with open(tmp.name, 'rb') as f:
+                    wav_data = f.read()
+                
+                # 删除临时文件
+                os.unlink(tmp.name)
+                
+            logger.debug(f"Float32转WAV成功，数据大小: {len(wav_data)} 字节")
+            return wav_data
+        except Exception as e:
+            logger.error(f"Float32转WAV失败: {str(e)}")
+            # 清理临时文件
+            try:
+                if 'tmp' in locals():
+                    os.unlink(tmp.name)
+            except:
+                pass
+            raise
 
 # 创建全局音频处理器实例
 audio_processor = AudioProcessor()
@@ -743,49 +786,39 @@ class AIService:
         """使用pyttsx3进行本地语音合成（无需网络）"""
         for attempt in range(max_retries):
             try:
-                # 使用线程池执行器来运行同步的pyttsx3代码，避免阻塞事件循环
-                loop = asyncio.get_event_loop()
+                import pyttsx3
+                # 初始化引擎
+                engine = pyttsx3.init()
+             
+                # 设置语音属性
+                if language == "zh":
+                    # 设置中文语音 - 以婷婷为例
+                    engine.setProperty('voice', 'com.apple.voice.compact.zh-CN.Tingting')
+                elif language == "en":
+                    # 设置英文语音 - 以Samantha为例
+                    engine.setProperty('voice', 'com.apple.voice.compact.en-US.Samantha')
                 
-                # 定义一个同步函数来执行pyttsx3操作
-                def sync_pyttsx3_tts():
-                    import pyttsx3
-                    # 初始化引擎
-                    engine = pyttsx3.init()
-                 
-                    # 设置语音属性
-                    if language == "zh":
-                        # 设置中文语音 - 以婷婷为例
-                        engine.setProperty('voice', 'com.apple.voice.compact.zh-CN.Tingting')
-                    elif language == "en":
-                        # 设置英文语音 - 以Samantha为例
-                        engine.setProperty('voice', 'com.apple.voice.compact.en-US.Samantha')
-                    
-                    # 设置语速和音量
-                    engine.setProperty('rate', 180)  # 适中语速
-                    engine.setProperty('volume', 0.9)  # 较高音量
-                    
-                    # 保存到临时文件 - 使用MP3格式
-                    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
-                        tmp_path = tmp.name
-                    
-                    # 保存语音到文件
-                    engine.save_to_file(text, tmp_path)
-                    engine.runAndWait()
-                    
-                    # 读取文件内容
-                    with open(tmp_path, 'rb') as f:
-                        audio_data = f.read()
-                    
-                    # 清理临时文件
-                    try:
-                        os.unlink(tmp_path)
-                    except:
-                        pass
-                    
-                    return audio_data
+                # 设置语速和音量
+                engine.setProperty('rate', 180)  # 适中语速
+                engine.setProperty('volume', 0.9)  # 较高音量
                 
-                # 在线程池中执行同步函数
-                audio_data = await loop.run_in_executor(None, sync_pyttsx3_tts)
+                # 保存到临时文件 - 使用MP3格式
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                # 保存语音到文件
+                engine.save_to_file(text, tmp_path)
+                engine.runAndWait()
+                
+                # 读取文件内容
+                with open(tmp_path, 'rb') as f:
+                    audio_data = f.read()
+                
+                # 清理临时文件
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
                 
                 if len(audio_data) > 100:
                     logger.info(f"pyttsx3 TTS成功 (尝试 {attempt + 1})")
@@ -948,7 +981,6 @@ class ResponseHandler:
         self.manager = manager
         self.audio_processor = audio_processor
         self.ai_service = ai_service
-        self.active_tts_tasks = set()  # 跟踪活跃的TTS任务
         logger.info("响应处理器初始化完成")
     
     @log_performance
@@ -1001,10 +1033,7 @@ class ResponseHandler:
         chat_history.add_message(session_id, "assistant", full_response)
         logger.info(f"LLM出参，full_response: {full_response}")
         
-        # 6. 等待所有TTS任务完成
-        await self._wait_for_all_tts_tasks()
-        
-        # 7. 发送end状态消息
+        # 6. 发送end状态消息
         await self.manager.send_json(websocket, {
             "status": "end",
             "role": "assistant",
@@ -1035,9 +1064,6 @@ class ResponseHandler:
             self.ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
         )
         
-        # 将任务添加到活跃任务集合中
-        self.active_tts_tasks.add(audio_task)
-        
         # 创建任务完成后的回调函数
         async def send_audio_when_ready(task):
             try:
@@ -1055,29 +1081,9 @@ class ResponseHandler:
                 logger.warning(f"句子TTS超时: {sentence}")
             except Exception as e:
                 logger.error(f"句子TTS失败: {sentence} 错误: {str(e)}")
-            finally:
-                # 无论成功还是失败，都从活跃任务中移除
-                self.active_tts_tasks.discard(task)
         
         # 启动异步任务，不等待完成
         asyncio.create_task(send_audio_when_ready(audio_task))
-    
-    async def _wait_for_all_tts_tasks(self):
-        """等待所有活跃的TTS任务完成"""
-        if self.active_tts_tasks:
-            logger.info(f"等待 {len(self.active_tts_tasks)} 个TTS任务完成...")
-            try:
-                # 等待所有任务完成，设置超时时间
-                await asyncio.wait_for(
-                    asyncio.gather(*self.active_tts_tasks, return_exceptions=True),
-                    timeout=60.0
-                )
-                logger.info("所有TTS任务已完成")
-            except asyncio.TimeoutError:
-                logger.warning("等待TTS任务超时，强制结束")
-            finally:
-                # 清空活跃任务集合
-                self.active_tts_tasks.clear()
 
 # 创建AIService实例
 ai_service = AIService()
