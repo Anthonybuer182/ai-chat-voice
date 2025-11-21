@@ -574,7 +574,7 @@ class AIService:
             yield ("抱歉，我遇到了一些问题。请稍后再试。", None)
     
     @log_performance
-    async def text_to_speech_with_engine(self, text: str, sentence_priority: int, engine: str, language: str = "zh", max_retries: int = 3) -> tuple:
+    async def text_to_speech_with_engine(self, text: str, sentence_index: int, engine: str, language: str = "zh", max_retries: int = 3) -> tuple:
         """
         使用指定TTS引擎将文本转换为语音
         
@@ -607,7 +607,7 @@ class AIService:
         else:
             logger.warning(f"TTS转换返回空结果，引擎: {engine}")
         
-        return result, sentence_priority
+        return result, sentence_index
 
     @log_performance
     async def _gtts_tts(self, text: str, language: str = "zh", max_retries: int = 3) -> bytes:
@@ -938,6 +938,8 @@ class ResponseHandler:
         self.manager = manager
         self.audio_processor = audio_processor
         self.ai_service = ai_service
+        # 音频任务管理
+        self.audio_tasks = {}  # 按message_id存储音频任务
         logger.info("响应处理器初始化完成")
     
     @log_performance
@@ -974,9 +976,12 @@ class ResponseHandler:
         ]
         logger.info(f"LLM入参：{messages}")
         
-        # 4. 流式获取AI响应
+        # 4. 初始化音频任务收集器
+        self.audio_tasks[message_id] = []
+        
+        # 5. 流式获取AI响应
         full_response = ""
-        sentence_priority = 0
+        sentence_index = 0
         async for chunk, sentence in self.ai_service.get_chat_response_stream_with_sentence(messages, language):
             # 发送文本内容
             if chunk:
@@ -985,20 +990,28 @@ class ResponseHandler:
             
             # 处理句子级别的TTS
             if sentence:
-                sentence_priority += 1
-                await self._handle_sentence_tts(websocket, sentence, sentence_priority, tts_engine, language, message_id)
+                sentence_index += 1
+                await self._handle_sentence_tts(websocket, sentence, sentence_index, tts_engine, language, message_id)
         
-        # 5. 添加AI响应到历史
+        # 6. 等待所有音频任务完成并合并音频
+        if self.audio_tasks[message_id]:
+            await self._wait_and_send_merged_audio(websocket, message_id)
+        
+        # 7. 添加AI响应到历史
         chat_history.add_message(session_id, "assistant", full_response)
         logger.info(f"LLM出参，full_response: {full_response}")
         
-        # 6. 发送end状态消息
+        # 8. 发送end状态消息
         await self.manager.send_json(websocket, {
             "status": "end",
             "role": "assistant",
             "message_id": message_id,
             "timestamp": datetime.now().timestamp()
         })
+        
+        # 9. 清理音频任务
+        if message_id in self.audio_tasks:
+            del self.audio_tasks[message_id]
         
         return full_response
     
@@ -1014,27 +1027,98 @@ class ResponseHandler:
         })
         logger.info(f"LLM出参，chunk: {chunk}")
     
-    async def _handle_sentence_tts(self, websocket, sentence, sentence_priority, tts_engine, language, message_id):
+    async def _handle_sentence_tts(self, websocket, sentence, sentence_index, tts_engine, language, message_id):
         """处理句子级别的TTS音频生成和发送"""
         logger.info(f"LLM出参，sentence: {sentence}")
         
         # 创建TTS任务
         audio_task = asyncio.create_task(
-            self.ai_service.text_to_speech_with_engine(sentence, sentence_priority, tts_engine, language)
+            self.ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
         )
         
-        # 创建任务完成后的回调函数
-        async def send_audio_when_ready(task):
-            try:
-                audio_data, priority = await asyncio.wait_for(task, timeout=30.0)
-                
-            except asyncio.TimeoutError:
-                logger.warning(f"句子TTS超时: {sentence}")
-            except Exception as e:
-                logger.error(f"句子TTS失败: {sentence} 错误: {str(e)}")
+        # 将任务添加到音频任务列表，等待后续合并
+        if message_id in self.audio_tasks:
+            self.audio_tasks[message_id].append((sentence_index, audio_task))
         
-        # 启动异步任务，不等待完成
-        asyncio.create_task(send_audio_when_ready(audio_task))
+        logger.info(f"创建TTS任务: {sentence[:50]}... (优先级: {sentence_index})")
+    
+    async def _wait_and_send_merged_audio(self, websocket, message_id):
+        """
+        等待所有音频任务完成并按优先级合并发送音频
+        
+        Args:
+            websocket: WebSocket连接对象
+            message_id: 消息ID
+        """
+        try:
+            if message_id not in self.audio_tasks or not self.audio_tasks[message_id]:
+                return
+            
+            # 等待所有音频任务完成
+            audio_tasks_with_index = self.audio_tasks[message_id]
+            
+            # 按优先级排序
+            audio_tasks_with_index.sort(key=lambda x: x[0])  # 按优先级排序
+            
+            # 收集所有音频数据
+            audio_segments = []
+            for index, task in audio_tasks_with_index:
+                try:
+                    # 等待任务完成
+                    audio_data = await task
+                    if audio_data:
+                        audio_segments.append(audio_data)
+                        logger.info(f"音频任务完成 (优先级: {index})")
+                except Exception as e:
+                    logger.error(f"音频任务失败 (优先级: {index}): {e}")
+            
+            # 合并音频数据
+            if audio_segments:
+                merged_audio = self._merge_audio_segments(audio_segments)
+                
+                # 发送合并后的音频
+                await self._send_audio_chunk(websocket, merged_audio, message_id)
+                logger.info(f"发送合并音频，包含 {len(audio_segments)} 个音频片段")
+            
+        except Exception as e:
+            logger.error(f"合并音频失败: {e}")
+            await self.manager.send_json(websocket, {
+                "status": "error",
+                "role": "assistant",
+                "message_id": message_id,
+                "error": f"音频合并失败: {str(e)}"
+            })
+    
+    def _merge_audio_segments(self, audio_segments):
+        """
+        合并多个音频片段
+        
+        Args:
+            audio_segments: 音频数据列表 (bytes)
+            
+        Returns:
+            bytes: 合并后的音频数据
+        """
+        if not audio_segments:
+            return b""
+        
+        # 简单合并：将所有音频数据连接起来
+        # 注意：这种方法适用于相同编码格式的MP3文件
+        merged_audio = b"".join(audio_segments)
+        
+        return merged_audio
+    
+    async def _send_audio_chunk(self, websocket, audio_data, message_id):
+        """发送音频块到前端"""
+        base64_audio = self.audio_processor.audio_to_base64(audio_data)
+        await self.manager.send_json(websocket, {
+            "type": "audio",
+            "content": base64_audio,
+            "status": "continue",
+            "role": "assistant",
+            "message_id": message_id,
+            "timestamp": datetime.now().timestamp()
+        })
 
 # 创建AIService实例
 ai_service = AIService()
