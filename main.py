@@ -939,7 +939,8 @@ class ResponseHandler:
         self.audio_processor = audio_processor
         self.ai_service = ai_service
         # 音频任务管理
-        self.audio_tasks = {}  # 按message_id存储音频任务
+        self.audio_datas = {}
+        self.sentences = {}
         logger.info("响应处理器初始化完成")
     
     @log_performance
@@ -977,7 +978,8 @@ class ResponseHandler:
         logger.info(f"LLM入参：{messages}")
         
         # 4. 初始化音频任务收集器
-        self.audio_tasks[message_id] = []
+        self.sentences[message_id] = []
+        self.audio_datas[message_id] = []
         
         # 5. 流式获取AI响应
         full_response = ""
@@ -991,11 +993,11 @@ class ResponseHandler:
             # 处理句子级别的TTS
             if sentence:
                 sentence_index += 1
-                await self._handle_sentence_tts(websocket, sentence, sentence_index, tts_engine, language, message_id)
+                self.sentences[message_id].append(sentence)
+                await self._handle_sentence_tts(sentence, sentence_index, tts_engine, language, message_id)
         
-        # 6. 等待所有音频任务完成并合并音频
-        if self.audio_tasks[message_id]:
-            await self._wait_and_send_merged_audio(websocket, message_id)
+        # 6. 等待所有音频任务完成并合并
+        await self._wait_and_send_merged_audio(websocket, message_id)
         
         # 7. 添加AI响应到历史
         chat_history.add_message(session_id, "assistant", full_response)
@@ -1008,10 +1010,6 @@ class ResponseHandler:
             "message_id": message_id,
             "timestamp": datetime.now().timestamp()
         })
-        
-        # 9. 清理音频任务
-        if message_id in self.audio_tasks:
-            del self.audio_tasks[message_id]
         
         return full_response
     
@@ -1027,20 +1025,29 @@ class ResponseHandler:
         })
         logger.info(f"LLM出参，chunk: {chunk}")
     
-    async def _handle_sentence_tts(self, websocket, sentence, sentence_index, tts_engine, language, message_id):
+    async def _handle_sentence_tts(self, sentence, sentence_index, tts_engine, language, message_id):
         """处理句子级别的TTS音频生成和发送"""
         logger.info(f"LLM出参，sentence: {sentence}")
-        
-        # 创建TTS任务
+
+         # 创建TTS任务
         audio_task = asyncio.create_task(
-            self.ai_service.text_to_speech_with_engine(sentence, tts_engine, language)
+            self.ai_service.text_to_speech_with_engine(sentence, sentence_index,tts_engine, language)
         )
+        # 创建任务完成后的回调函数
+        async def send_audio_when_ready(task):
+            try:
+                audio_data, sentence_index = await asyncio.wait_for(task, timeout=30.0)
+                if audio_data:
+                    if message_id in self.audio_datas:
+                        self.audio_datas[message_id].append((sentence_index, audio_data))
+            except asyncio.TimeoutError:
+                logger.warning(f"句子TTS超时: {sentence}")
+            except Exception as e:
+                logger.error(f"句子TTS失败: {sentence} 错误: {str(e)}")
         
-        # 将任务添加到音频任务列表，等待后续合并
-        if message_id in self.audio_tasks:
-            self.audio_tasks[message_id].append((sentence_index, audio_task))
-        
-        logger.info(f"创建TTS任务: {sentence[:50]}... (序号顺序: {sentence_index})")
+        # 启动异步任务，不等待完成
+        asyncio.create_task(send_audio_when_ready(audio_task))
+
     
     async def _wait_and_send_merged_audio(self, websocket, message_id):
         """
@@ -1050,35 +1057,60 @@ class ResponseHandler:
             websocket: WebSocket连接对象
             message_id: 消息ID
         """
+        # 等待所有音频任务完成
+        max_wait_time = 30.0  # 最大等待时间30秒
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait_time:
+            # 检查音频数据是否准备就绪
+            if (message_id in self.audio_datas and 
+                message_id in self.sentences and
+                len(self.audio_datas[message_id]) == len(self.sentences[message_id]) and
+                len(self.audio_datas[message_id]) > 0):
+                break
+            
+            # 持续检测，不等待间隔
+            await asyncio.sleep(0)  # 让出控制权，但不等待
+        
+        # 检查是否超时
+        if time.time() - start_time >= max_wait_time:
+            logger.warning(f"等待音频任务超时，message_id: {message_id}")
+            if message_id in self.audio_datas:
+                del self.audio_datas[message_id]
+            if message_id in self.sentences:
+                del self.sentences[message_id]
+            await self.manager.send_json(websocket, {
+                "status": "error",
+                "role": "assistant",
+                "message_id": message_id,
+                "error": "音频生成超时，请重试"
+            })
+            return
+        
         try:
-            if message_id not in self.audio_tasks or not self.audio_tasks[message_id]:
-                return
-            
-            # 等待所有音频任务完成
-            audio_tasks_with_index = self.audio_tasks[message_id]
-            
-            # 按序号顺序排序
-            audio_tasks_with_index.sort(key=lambda x: x[0])  # 按序号顺序排序
-            
-            # 收集所有音频数据
-            audio_segments = []
-            for index, task in audio_tasks_with_index:
-                try:
-                    # 等待任务完成
-                    audio_data = await task
-                    if audio_data:
-                        audio_segments.append(audio_data)
-                        logger.info(f"音频任务完成 (序号顺序: {index})")
-                except Exception as e:
-                    logger.error(f"音频任务失败 (序号顺序: {index}): {e}")
+            # 按序号排序音频数据
+            sorted_audio_data = sorted(self.audio_datas[message_id], key=lambda x: x[0])
+            audio_segments = [audio_data for _, audio_data in sorted_audio_data]
             
             # 合并音频数据
             if audio_segments:
-                merged_audio = self._merge_audio_segments(audio_segments)
-                
-                # 发送合并后的音频
-                await self._send_audio_chunk(websocket, merged_audio, message_id)
+                merged_audio = b"".join(audio_segments)
+                base64_audio = self.audio_processor.audio_to_base64(merged_audio)
+                await self.manager.send_json(websocket, {
+                    "type": "audio",
+                    "content": base64_audio,
+                    "status": "continue",
+                    "role": "assistant",
+                    "message_id": message_id,
+                    "timestamp": datetime.now().timestamp()
+                })
                 logger.info(f"发送合并音频，包含 {len(audio_segments)} 个音频片段")
+            else:
+                logger.warning(f"没有可用的音频片段，message_id: {message_id}")
+            if message_id in self.audio_datas:
+                del self.audio_datas[message_id]
+            if message_id in self.sentences:
+                del self.sentences[message_id]
             
         except Exception as e:
             logger.error(f"合并音频失败: {e}")
@@ -1088,37 +1120,7 @@ class ResponseHandler:
                 "message_id": message_id,
                 "error": f"音频合并失败: {str(e)}"
             })
-    
-    def _merge_audio_segments(self, audio_segments):
-        """
-        合并多个音频片段
         
-        Args:
-            audio_segments: 音频数据列表 (bytes)
-            
-        Returns:
-            bytes: 合并后的音频数据
-        """
-        if not audio_segments:
-            return b""
-        
-        # 简单合并：将所有音频数据连接起来
-        # 注意：这种方法适用于相同编码格式的MP3文件
-        merged_audio = b"".join(audio_segments)
-        
-        return merged_audio
-    
-    async def _send_audio_chunk(self, websocket, audio_data, message_id):
-        """发送音频块到前端"""
-        base64_audio = self.audio_processor.audio_to_base64(audio_data)
-        await self.manager.send_json(websocket, {
-            "type": "audio",
-            "content": base64_audio,
-            "status": "continue",
-            "role": "assistant",
-            "message_id": message_id,
-            "timestamp": datetime.now().timestamp()
-        })
 
 # 创建AIService实例
 ai_service = AIService()
