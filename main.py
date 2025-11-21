@@ -313,7 +313,7 @@ class SentenceProcessor:
     功能：
     - 按字符处理文本流
     - 检测句子边界（中文和英文）
-    - 按优先级管理句子队列
+    - 按序号顺序管理句子队列
     - 支持并发TTS处理
     """
     
@@ -1040,11 +1040,11 @@ class ResponseHandler:
         if message_id in self.audio_tasks:
             self.audio_tasks[message_id].append((sentence_index, audio_task))
         
-        logger.info(f"创建TTS任务: {sentence[:50]}... (优先级: {sentence_index})")
+        logger.info(f"创建TTS任务: {sentence[:50]}... (序号顺序: {sentence_index})")
     
     async def _wait_and_send_merged_audio(self, websocket, message_id):
         """
-        等待所有音频任务完成并按优先级合并发送音频
+        等待所有音频任务完成并按序号顺序合并发送音频
         
         Args:
             websocket: WebSocket连接对象
@@ -1057,8 +1057,8 @@ class ResponseHandler:
             # 等待所有音频任务完成
             audio_tasks_with_index = self.audio_tasks[message_id]
             
-            # 按优先级排序
-            audio_tasks_with_index.sort(key=lambda x: x[0])  # 按优先级排序
+            # 按序号顺序排序
+            audio_tasks_with_index.sort(key=lambda x: x[0])  # 按序号顺序排序
             
             # 收集所有音频数据
             audio_segments = []
@@ -1068,9 +1068,9 @@ class ResponseHandler:
                     audio_data = await task
                     if audio_data:
                         audio_segments.append(audio_data)
-                        logger.info(f"音频任务完成 (优先级: {index})")
+                        logger.info(f"音频任务完成 (序号顺序: {index})")
                 except Exception as e:
-                    logger.error(f"音频任务失败 (优先级: {index}): {e}")
+                    logger.error(f"音频任务失败 (序号顺序: {index}): {e}")
             
             # 合并音频数据
             if audio_segments:
