@@ -8,24 +8,12 @@
 一个基于 FastAPI + WebSocket + Whisper 的智能语音聊天系统，支持文本和语音两种交互模式，集成AI大语言模型进行智能对话。
 
 https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
-<p align="center">
-  <!-- 保留视频标签给其他平台使用 -->
-  <video width="800" controls style="display:none;">
-    <source src="https://anthonybuer182.github.io/ai-chat-voice/ai-chat-voice.mp4" type="video/mp4">
-    您的浏览器不支持视频播放。
-  </video>
-</p>
-
-> **注意**: GitHub README 不支持直接显示视频。请使用以下方式观看完整演示：
-> 
-> - 下载项目后本地查看 `docs/demo.mp4` 文件
-> - 或者访问在线演示地址（如有部署）
 
 ## 🌟 功能特性
 
 ### 🎙️ 语音交互
 - **实时语音识别**: 使用 Whisper 模型进行高精度语音转文字
-- **多引擎TTS**: 支持多种文本转语音引擎（gTTS、EdgeTTS、pyttsx3）
+- **多引擎TTS**: 支持多种文本转语音引擎（gTTS、EdgeTTS、pyttsx3、ElevenLabs）
 - **语音活动检测**: 智能检测语音输入和静音
 - **音频格式转换**: 自动处理 WebM 到 WAV 格式转换
 - **流式语音播放**: 实时播放AI语音回复
@@ -56,7 +44,8 @@ https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 - **FastAPI**: 高性能 Python Web 框架
 - **WebSocket**: 实时双向通信
 - **Whisper**: OpenAI 语音识别模型
-- **gTTS/EdgeTTS**: 文本转语音引擎
+- **gTTS/EdgeTTS/pyttsx3**: 文本转语音引擎
+- **ElevenLabs**: 高级语音合成服务
 - **Pydub**: 音频处理库
 - **SQLite**: 轻量级数据存储
 
@@ -81,7 +70,7 @@ https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 
 ### 1. 克隆项目
 ```bash
-git clone https://github.com/your-username/ai-chat-voice.git
+git clone https://github.com/Anthonybuer182/ai-chat-voice.git
 cd ai-chat-voice
 ```
 
@@ -97,6 +86,7 @@ API_KEY=your-deepseek-api-key-here
 MODEL=deepseek-chat
 API_BASE=https://api.deepseek.com/v1
 WHISPER_MODEL=base
+ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
 ```
 
 > **注意**: 项目使用 DeepSeek API，需要注册并获取 API 密钥
@@ -110,8 +100,6 @@ python main.py
 
 应用将在 `http://localhost:8000` 启动，访问该地址即可使用。
 
-### 5. API 文档
-访问 `http://localhost:8000/docs` 查看完整的 API 文档。
 
 ## 🚀 使用指南
 
