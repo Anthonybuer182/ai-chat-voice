@@ -895,11 +895,6 @@ class AIService:
             "ar": "21m00Tcm4TlvDq8ikWAM",  # Rachel - 英语女性（阿拉伯语支持有限）
             "hi": "21m00Tcm4TlvDq8ikWAM"   # Rachel - 英语女性（印地语支持有限）
         }
-        
-        # 获取环境变量中配置的语音ID（如果存在）
-        custom_voice_id = os.getenv("ELEVENLABS_VOICE_ID")
-        if custom_voice_id:
-            return custom_voice_id
             
         return voice_mapping.get(language, "21m00Tcm4TlvDq8ikWAM")  # 默认语音
                 
