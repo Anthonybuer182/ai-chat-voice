@@ -7,6 +7,7 @@
 
 一个基于 FastAPI + WebSocket + Whisper 的智能语音聊天系统，支持文本和语音两种交互模式，集成AI大语言模型进行智能对话。
 
+https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 <p align="center">
   <!-- 保留视频标签给其他平台使用 -->
   <video width="800" controls style="display:none;">
