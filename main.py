@@ -1262,12 +1262,12 @@ if __name__ == "__main__":
     
     # 启动服务器
     logger.info("正在启动uvicorn服务器...")
-    logger.info("服务器配置 - 主机: 0.0.0.0, 端口: 8000, 日志级别: info")
+    logger.info("服务器配置 - 主机: localhost, 端口: 8000, 日志级别: info")
     
     try:
         uvicorn.run(
             app,
-            host="0.0.0.0",
+            host="localhost",
             port=8000,
             log_level="info"
         )
