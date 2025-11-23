@@ -91,7 +91,7 @@ ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
 
 > **注意**: 项目使用 DeepSeek API，需要注册并获取 API 密钥
 > 
-> **获取 API 密钥**: 访问 `https://platform.deepseek.com/` 注册账号并获取 API 密钥
+> **获取 API 密钥**: 访问 [DeepSeek 平台](https://platform.deepseek.com/) 注册账号并获取 API 密钥
 
 ### 4. 启动应用
 ```bash
@@ -217,12 +217,18 @@ flowchart TD
 - `MODEL`: 使用的模型名称（默认：deepseek-chat）
 - `API_BASE`: API基础URL（默认：https://api.deepseek.com/v1）
 - `WHISPER_MODEL`: 语音识别模型大小（tiny/base/small/medium/large）
+- `ELEVENLABS_API_KEY`: ElevenLabs API密钥（用于高级TTS服务）
+
+
 
 ### TTS引擎配置
 支持多种TTS引擎，可通过前端界面选择：
 - **gTTS**: Google Text-to-Speech（在线，质量好）
 - **EdgeTTS**: Microsoft Edge TTS（在线，支持多种语音）
 - **pyttsx3**: 离线TTS引擎（无需网络，响应快）
+- **ElevenLabs**: 高级语音合成服务（需配置API密钥）
+
+
 
 ### 性能配置
 - **流式响应**: 启用实时流式AI回复
@@ -262,32 +268,6 @@ client = AsyncOpenAI(
 - 添加插件系统
 - 实现用户认证
 - 添加文件上传功能
-
-## 🐛 故障排除
-
-### 常见问题
-
-**Q: 服务启动失败**
-A: 检查Python版本和依赖包是否安装正确
-
-**Q: API调用失败**
-A: 验证API密钥配置是否正确，网络连接是否正常
-
-**Q: 语音识别不准确**
-A: 尝试使用更大的Whisper模型（如medium或large）
-
-**Q: TTS没有声音**
-A: 检查浏览器音频权限，尝试切换TTS引擎
-
-**Q: WebSocket连接失败**
-A: 检查防火墙设置和端口占用情况
-
-### 日志查看
-服务运行日志会输出到控制台，包含详细的调试信息：
-- 连接状态变化
-- API调用详情
-- 音频处理进度
-- 错误和异常信息
 
 ## 📄 许可证
 
