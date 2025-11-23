@@ -8,7 +8,11 @@
 一个基于 FastAPI + WebSocket + Whisper 的智能语音聊天系统，支持文本和语音两种交互模式，集成AI大语言模型进行智能对话。
 
 <p align="center">
-  <img src="docs/demo.gif" alt="AI语音聊天系统演示" width="800">
+  <!-- 保留视频标签给其他平台使用 -->
+  <video width="800" controls style="display:none;">
+    <source src="https://anthonybuer182.github.io/ai-chat-voice/ai-chat-voice.mp4" type="video/mp4">
+    您的浏览器不支持视频播放。
+  </video>
 </p>
 
 > **注意**: GitHub README 不支持直接显示视频。请使用以下方式观看完整演示：
