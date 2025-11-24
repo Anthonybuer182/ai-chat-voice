@@ -5,21 +5,21 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-一个基于 FastAPI + WebSocket + Whisper 的智能语音聊天系统，支持文本和语音两种交互模式，集成AI大语言模型进行智能对话。
+一个基于 FastAPI + WebSocket + STT + LLM + TTS 的智能语音聊天系统，支持文本和语音两种交互模式，集成AI大语言模型进行智能对话。
 
 https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 
 ## 🌟 功能特性
 
 ### 🎙️ 语音交互
-- **实时语音识别**: 使用 Whisper 模型进行高精度语音转文字
+- **实时语音识别**: 使用 Faster-Whisper 模型进行高精度语音转文字
 - **多引擎TTS**: 支持多种文本转语音引擎（gTTS、EdgeTTS、pyttsx3、ElevenLabs）
 - **语音活动检测**: 智能检测语音输入和静音
 - **音频格式转换**: 自动处理 WebM 到 WAV 格式转换
 - **流式语音播放**: 实时播放AI语音回复
 
 ### 💬 文本对话
-- **智能AI对话**: 集成 DeepSeek 等大语言模型，提供智能回复
+- **智能AI对话**: 集成 LLM 等大语言模型，提供智能回复
 - **流式响应**: AI回复支持流式输出，提升用户体验
 - **句子级处理**: 按句子边界智能分割，实现更自然的语音交互
 - **多语言支持**: 支持中文和英文对话
@@ -43,9 +43,8 @@ https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 ### 后端技术
 - **FastAPI**: 高性能 Python Web 框架
 - **WebSocket**: 实时双向通信
-- **Whisper**: OpenAI 语音识别模型
-- **gTTS/EdgeTTS/pyttsx3**: 文本转语音引擎
-- **ElevenLabs**: 高级语音合成服务
+- **Faster-Whisper**: OpenAI 语音识别模型（支持多种尺寸）
+- **gTTS/EdgeTTS/pyttsx3/ElevenLabs**: 文本转语音引擎
 - **Pydub**: 音频处理库
 - **SQLite**: 轻量级数据存储
 
@@ -57,8 +56,8 @@ https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 - **Font Awesome**: 图标库
 
 ### AI 集成
-- **DeepSeek API**: 大语言模型服务
-- **Whisper模型**: 语音识别（支持多种尺寸）
+- **LLM API**: 大语言模型服务
+- **Faster-Whisper模型**: 语音识别（支持多种尺寸）
 - **多TTS引擎**: 灵活的语音合成方案
 
 ## 📦 安装部署
@@ -102,14 +101,14 @@ pip3 install -r requirements.txt
 ### 4. 配置环境变量
 创建 `.env` 文件并设置 API 密钥：
 ```bash
-API_KEY=your-deepseek-api-key-here
-MODEL=deepseek-chat
-API_BASE=https://api.deepseek.com/v1
+API_KEY=your-llm-api-key-here
+MODEL=llm-model-name-here
+API_BASE=llm-api-base-url-here
 WHISPER_MODEL=base
 ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
 ```
 
-> **注意**: 项目使用 DeepSeek API 和 ElevenLabs API，需要注册并获取相应的 API 密钥
+> **注意**: 如果项目使用 DeepSeek API 和 ElevenLabs API，需要注册并获取相应的 API 密钥
 > 
 > **获取 DeepSeek API 密钥**: 访问 [DeepSeek 平台](https://platform.deepseek.com/) 注册账号并获取 API 密钥
 > 
@@ -160,58 +159,59 @@ ai-chat-voice/
 
 ### 系统架构图
 ```mermaid
-flowchart TD
-    %% 左侧列 - 语音输入流程
-    subgraph LeftColumn [语音输入流程]
-        direction TB
-        A1[🎤 语音输入] --> A2[音频录制<br>Web Audio API]
-        A2 --> A3[格式转换<br>WebM to WAV]
-        A3 --> A4[语音识别<br>Whisper Model]
-        A4 --> A5[文本预处理]
+graph LR
+    %% 用户层
+    User["用户"]
+    
+    %% 前端层
+    subgraph "前端层 Frontend Layer"
+        WebUI["Web界面"]
+        InputText["输入文本"]
+        ManualRecord["手动录制语音"]
+        AutoDetect["VAD自动检测语音"]
     end
+    
+    %% 后端层
+    subgraph "后端层 Backend Layer"
+        WebSocket["WebSocket服务"]
+        ChatService["聊天服务"]
+        Text["文本"]
+        Audio["音频"]
+        LLM["大语言模型<br/>LLM"]
+        TTS["语音合成<br/>TTS"]
+        ASR["STT语音识别<br/>Faster-Whisper"]
+    end
+    
+    %% 数据流
+    User --> WebUI
+    WebUI --> InputText["输入文本"]
+    WebUI --> ManualRecord["手动录制语音"]
+    WebUI --> AutoDetect["VAD自动检测语音"]
+    InputText --> WebSocket
+    ManualRecord --> WebSocket
+    AutoDetect --> WebSocket
+    WebSocket --> Text
+    Text --> ChatService
+    WebSocket --> Audio
+    Audio --> ASR
+    ASR --> ChatService
+    ChatService --> LLM
+    LLM --> TTS
 
-    %% 中间列 - AI处理核心
-    subgraph MiddleColumn [AI处理核心]
-        direction TB
-        B1[💭 AI对话处理] --> B2[流式响应生成]
-        B2 --> B3[句子边界检测]
-        B3 --> B4[多引擎TTS]
-    end
-    
-    %% 右侧列 - 语音输出流程
-    subgraph RightColumn [语音输出流程]
-        direction TB
-        C1[🔊 语音合成] --> C2[音频编码]
-        C2 --> C3[实时播放]
-        C3 --> C4[🎧 用户听到回复]
-    end
-    
-    %% 连接左侧和中间列
-    A5 --> B1
-    
-    %% 连接中间列和右侧列
-    B4 --> C1
-    
-    %% 文本聊天直接路径
-    D1[⌨️ 文本输入] --> B1
-    
-    %% WebSocket通信
-    E1[🔌 WebSocket] --> A2
-    E1 --> C3
     
     %% 样式定义
-    classDef voiceInput fill:#E3F2FD,stroke:#0D47A1,stroke-width:2px,color:#0D47A1;
-    classDef aiCore fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#C62828;
-    classDef voiceOutput fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#2E7D32;
-    classDef textInput fill:#FFF8E1,stroke:#FF8F00,stroke-width:2px,color:#FF8F00;
-    classDef websocket fill:#F3E5F5,stroke:#4A148C,stroke-width:2px,color:#4A148C;
+    classDef user fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000000,font-weight:bold
+    classDef frontend fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000000,font-weight:bold
+    classDef backend fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000000,font-weight:bold
+    classDef ai fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000000,font-weight:bold
+    classDef input fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000000,font-weight:bold
     
-    %% 应用样式
-    class A1,A2,A3,A4,A5 voiceInput;
-    class B1,B2,B3,B4 aiCore;
-    class C1,C2,C3,C4 voiceOutput;
-    class D1 textInput;
-    class E1 websocket;
+    class User user
+    class WebUI frontend
+    class WebServer,WebSocket,ChatService,Audio backend
+    class Text backend
+    class LLM,TTS,ASR ai
+    class InputText,ManualRecord,AutoDetect input
 ```
 
 ## 🔧 核心模块
@@ -234,10 +234,10 @@ flowchart TD
 ## ⚙️ 配置说明
 
 ### API配置
-项目支持多种AI服务提供商，默认使用DeepSeek API：
+项目支持多种AI服务提供商，支持OpenAI-SDK的都可以：
 - `API_KEY`: API访问密钥
-- `MODEL`: 使用的模型名称（默认：deepseek-chat）
-- `API_BASE`: API基础URL（默认：https://api.deepseek.com/v1）
+- `MODEL`: 使用的模型名称（推荐：deepseek-chat）
+- `API_BASE`: API基础URL（推荐：https://api.deepseek.com/v1）
 - `WHISPER_MODEL`: 语音识别模型大小（tiny/base/small/medium/large）
 - `ELEVENLABS_API_KEY`: ElevenLabs API密钥（用于高级TTS服务）
 
@@ -306,8 +306,7 @@ client = AsyncOpenAI(
 ## 🙏 致谢
 
 - [FastAPI](https://fastapi.tiangolo.com/) - 优秀的 Python Web 框架
-- [Whisper](https://github.com/openai/whisper) - OpenAI 语音识别模型
-- [DeepSeek](https://platform.deepseek.com/) - 大语言模型服务
+- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) - OpenAI 语音识别模型（支持多种尺寸）
 - [gTTS](https://gtts.readthedocs.io/) - Google 文本转语音
 - [Font Awesome](https://fontawesome.com/) - 图标库
 
