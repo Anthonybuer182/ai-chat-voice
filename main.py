@@ -1154,9 +1154,12 @@ class ResponseHandler:
             
             # 合并音频数据
             if audio_segments:
-                # 使用新的WAV音频合并方法
-                merged_audio_bytes = AudioProcessor.merge_wav_audio(audio_segments)
-                logger.info(f"使用WAV格式合并方法合并 {len(audio_segments)} 个音频片段")
+                if tts_engine == "pyttsx3":
+                    # 使用新的WAV音频合并方法
+                    merged_audio_bytes = AudioProcessor.merge_wav_audio(audio_segments)
+                    logger.info(f"使用WAV格式合并方法合并 {len(audio_segments)} 个音频片段")
+                else:
+                    merged_audio_bytes = b"".join(audio_segments)
                 
                 base64_audio = self.audio_processor.audio_to_base64(merged_audio_bytes)
                 await self.manager.send_json(websocket, {
