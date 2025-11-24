@@ -40,7 +40,7 @@ from fastapi.staticfiles import StaticFiles
 from gtts import gTTS
 from openai import AsyncOpenAI
 from faster_whisper import WhisperModel
-from pydub import AudioSegment
+# from pydub import AudioSegment  # 已移除，避免ffmpeg依赖
 import logging
 from dotenv import load_dotenv
 
@@ -375,6 +375,7 @@ class AudioProcessor:
     - 音频格式转换
     - 临时文件管理
     - 音频数据格式转换
+    - WAV音频合并
     """
     
     @staticmethod
@@ -438,6 +439,79 @@ class AudioProcessor:
         except Exception as e:
             logger.error(f"WebM转WAV失败: {str(e)}")
             raise
+    
+    @staticmethod
+    @log_performance
+    def merge_wav_audio(audio_segments: List[bytes]) -> bytes:
+        """
+        合并多个WAV音频片段为单个WAV文件
+        
+        Args:
+            audio_segments: WAV音频数据片段列表
+            
+        Returns:
+            bytes: 合并后的WAV音频数据
+        """
+        if not audio_segments:
+            return b""
+        
+        if len(audio_segments) == 1:
+            return audio_segments[0]
+        
+        try:
+            import io
+            import numpy as np
+            from scipy.io import wavfile
+            
+            # 使用临时文件处理每个音频片段
+            all_audio_data = []
+            sample_rate = None
+            
+            for i, audio_bytes in enumerate(audio_segments):
+                try:
+                    # 将字节数据转换为文件对象
+                    audio_file = io.BytesIO(audio_bytes)
+                    
+                    # 使用scipy读取WAV文件
+                    sr, data = wavfile.read(audio_file)
+                    
+                    # 检查采样率是否一致
+                    if sample_rate is None:
+                        sample_rate = sr
+                    elif sr != sample_rate:
+                        logger.warning(f"第{i+1}个音频片段的采样率({sr})与第一个({sample_rate})不一致，可能影响音质")
+                    
+                    # 确保数据是二维数组（多声道）
+                    if len(data.shape) == 1:
+                        data = data.reshape(-1, 1)
+                    
+                    all_audio_data.append(data)
+                    logger.debug(f"成功读取第{i+1}个音频片段，采样率: {sr}, 数据形状: {data.shape}")
+                    
+                except Exception as e:
+                    logger.warning(f"读取第{i+1}个音频片段失败: {str(e)}，跳过该片段")
+                    continue
+            
+            if not all_audio_data:
+                logger.error("所有音频片段读取失败，回退到简单拼接")
+                return b"".join(audio_segments)
+            
+            # 合并所有音频数据
+            merged_data = np.concatenate(all_audio_data, axis=0)
+            
+            # 将合并后的数据写入字节流
+            output_buffer = io.BytesIO()
+            wavfile.write(output_buffer, sample_rate, merged_data)
+            
+            # 获取合并后的音频字节数据
+            merged_audio_bytes = output_buffer.getvalue()
+            
+            logger.info(f"成功合并 {len(all_audio_data)} 个WAV音频片段，采样率: {sample_rate}, 总时长: {len(merged_data)/sample_rate:.2f}秒")
+            return merged_audio_bytes
+            
+        except Exception as e:
+            logger.error(f"WAV音频合并失败: {str(e)}，回退到简单拼接")
+            return b"".join(audio_segments)
 
 # 创建全局音频处理器实例
 audio_processor = AudioProcessor()
@@ -1080,17 +1154,10 @@ class ResponseHandler:
             
             # 合并音频数据
             if audio_segments:
-                if tts_engine == "pyttsx3":
-                    merged_audio = AudioSegment.empty()
-                    for audio_data in audio_segments:
-                        audio = AudioSegment.from_file(io.BytesIO(audio_data), format="wav")
-                        merged_audio += audio
-                    # 将 AudioSegment 转换为 bytes
-                    with io.BytesIO() as buffer:
-                        merged_audio.export(buffer, format="wav")
-                        merged_audio_bytes = buffer.getvalue()
-                else:
-                    merged_audio_bytes = b"".join(audio_segments)
+                # 使用新的WAV音频合并方法
+                merged_audio_bytes = AudioProcessor.merge_wav_audio(audio_segments)
+                logger.info(f"使用WAV格式合并方法合并 {len(audio_segments)} 个音频片段")
+                
                 base64_audio = self.audio_processor.audio_to_base64(merged_audio_bytes)
                 await self.manager.send_json(websocket, {
                     "type": "audio",
