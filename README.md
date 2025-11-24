@@ -46,7 +46,6 @@ https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
 - **Faster-Whisper**: OpenAI 语音识别模型（支持多种尺寸）
 - **gTTS/EdgeTTS/pyttsx3/ElevenLabs**: 文本转语音引擎
 - **Pydub**: 音频处理库
-- **SQLite**: 轻量级数据存储
 
 ### 前端技术
 - **HTML5 + CSS3**: 现代化响应式界面
@@ -314,7 +313,7 @@ client = AsyncOpenAI(
 
 如有问题或建议，请通过以下方式联系：
 
-- 提交 GitHub Issue
+- 提交 [GitHub Issue](https://github.com/Anthonybuer182/ai-chat-voice/issues)
 - 发送邮件至项目维护者
 
 ## 🎯 路线图
