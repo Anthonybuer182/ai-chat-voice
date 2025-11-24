@@ -74,12 +74,32 @@ git clone https://github.com/Anthonybuer182/ai-chat-voice.git
 cd ai-chat-voice
 ```
 
-### 2. 安装依赖
+### 2. 创建虚拟环境
+
+**macOS / Linux:**
 ```bash
-pip install -r requirements.txt
+# 创建虚拟环境
+python3 -m venv venv
+
+# 激活虚拟环境
+source venv/bin/activate
 ```
 
-### 3. 配置环境变量
+**Windows:**
+```bash
+# 创建虚拟环境
+python3 -m venv venv
+
+# 激活虚拟环境
+venv\\Scripts\\activate
+```
+
+### 3. 安装依赖
+```bash
+pip3 install -r requirements.txt
+```
+
+### 4. 配置环境变量
 创建 `.env` 文件并设置 API 密钥：
 ```bash
 API_KEY=your-deepseek-api-key-here
@@ -89,11 +109,13 @@ WHISPER_MODEL=base
 ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
 ```
 
-> **注意**: 项目使用 DeepSeek API，需要注册并获取 API 密钥
+> **注意**: 项目使用 DeepSeek API 和 ElevenLabs API，需要注册并获取相应的 API 密钥
 > 
-> **获取 API 密钥**: 访问 [DeepSeek 平台](https://platform.deepseek.com/) 注册账号并获取 API 密钥
+> **获取 DeepSeek API 密钥**: 访问 [DeepSeek 平台](https://platform.deepseek.com/) 注册账号并获取 API 密钥
+> 
+> **获取 ElevenLabs API 密钥**: 访问 [ElevenLabs 官网](https://elevenlabs.io/) 注册账号并获取 API 密钥
 
-### 4. 启动应用
+### 5. 启动应用
 ```bash
 python main.py
 ```
