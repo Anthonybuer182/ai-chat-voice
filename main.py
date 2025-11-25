@@ -992,7 +992,6 @@ class ResponseHandler:
             # 处理句子级别的TTS
             if sentence:
                 sentence_index += 1
-                self.sentences[message_id].append(sentence)
                 await self._handle_sentence_tts(sentence, sentence_index, tts_engine, language, message_id)
         # 6. 等待所有TTS任务完成
         await self._wait_for_all_tts_tasks()
