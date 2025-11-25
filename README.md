@@ -5,6 +5,12 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
+<div align="center">
+  <p>
+    <strong>中文</strong> | <a href="README_EN.md">English</a>
+  </p>
+</div>
+
 一个基于 FastAPI + WebSocket + STT + LLM + TTS 的智能语音聊天系统，支持文本和语音两种交互模式，集成AI大语言模型进行智能对话。
 
 https://github.com/user-attachments/assets/03ef1b47-d256-4d9b-b2a2-aa9f34e83781
@@ -141,6 +147,13 @@ python main.py
 - **TTS引擎选择**: 可根据需求选择不同的语音合成引擎
 - **历史记录**: 对话历史自动保存，支持多会话管理
 
+### 🌐 文档语言切换
+项目提供中英文双语文档，方便不同语言的开发者使用：
+- **中文文档**: [README.md](README.md) - 当前文档
+- **英文文档**: [README_EN.md](README_EN.md) - English documentation
+
+在GitHub页面顶部可以看到语言切换链接，点击即可在中文和英文文档之间切换。
+
 ## 📁 项目结构
 
 ### 目录结构
@@ -149,7 +162,8 @@ ai-chat-voice/
 ├── main.py                 # 主应用文件
 ├── index.html             # 前端界面文件
 ├── requirements.txt       # 依赖包列表
-├── README.md             # 项目说明文档
+├── README.md             # 项目说明文档（中文）
+├── README_EN.md          # 项目说明文档（英文）
 ├── .env                  # 环境配置文件（需手动创建）
 ├── LICENSE               # 许可证文件
 └── static/
