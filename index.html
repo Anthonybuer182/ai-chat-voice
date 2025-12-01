@@ -990,7 +990,6 @@
                 'textInput-placeholder': lang === 'zh' ? '输入消息...' : 'Type a message...',
                 'send-btn': lang === 'zh' ? '发送' : 'Send',
                 'record-btn': lang === 'zh' ? '录音' : 'Record',
-                'volume-label': lang === 'zh' ? '<i class="fas fa-volume-up"></i> 音量：' : '<i class="fas fa-volume-up"></i> Volume:'
             };
             
             // 更新元素文本
@@ -1017,8 +1016,6 @@
                     '<i class="fas fa-microphone"></i> Record';
                 recordBtn.setAttribute('aria-label', lang === 'zh' ? '录音' : 'Record');
             }
-            const volumeLabel = document.querySelector('.audio-controls span:first-child');
-            if (volumeLabel) volumeLabel.innerHTML = elements['volume-label'];
             
             // 更新状态指示器（现在使用共享的status）
             const status = document.getElementById('status');
